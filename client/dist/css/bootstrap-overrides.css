@@ -1,0 +1,32 @@
+body {
+    font-size: 1rem;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-default {
+    cursor: default;
+}
+
+.navbar-brand {
+    font-size: 2rem;
+}
+
+.commutext {
+    font-family: "Bungee", cursive;
+}
+
+.vertical-line-1 {
+    height: 100%;
+    border-left: thick solid #fefde7;
+}
+
+.hover-black:hover {
+    background: #23272A;
+}
+
+.border-2 {
+    border: 2px solid;
+}

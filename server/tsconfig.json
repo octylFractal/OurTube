@@ -1,0 +1,25 @@
+{
+  "include": [
+    "./src"
+  ],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "target": "ES2015",
+    "module": "commonjs",
+    "lib": [
+      "ES6",
+      "ES5",
+      "ScriptHost"
+    ],
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noImplicitReturns": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "typeRoots": [
+      "./typings"
+    ]
+  }
+}

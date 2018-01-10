@@ -1,0 +1,76 @@
+{
+  "name": "ourtube-client",
+  "version": "1.0.0",
+  "description": "Discord bot for YouTube with web interface for queueing songs.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c",
+    "dev": "rollup -c -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kenzierocks/OurTube.git"
+  },
+  "keywords": [
+    "youtube",
+    "discord"
+  ],
+  "author": "Kenzie Togami",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kenzierocks/OurTube/issues"
+  },
+  "homepage": "https://github.com/kenzierocks/OurTube#readme",
+  "devDependencies": {
+    "@types/base64-js": "^1.2.5",
+    "@types/bootstrap": "^3.3.36",
+    "@types/jquery": "^3.2.12",
+    "@types/jqueryui": "^1.11.36",
+    "@types/query-string": "^5.0.1",
+    "@types/react": "^16.0.34",
+    "@types/react-dom": "^16.0.3",
+    "@types/react-redux": "^5.0.4",
+    "@types/reactstrap": "^5.0.10",
+    "@types/socket.io-client": "^1.4.32",
+    "@types/tether": "^1.4.3",
+    "@types/url-parse": "^1.1.0",
+    "babel-core": "^6.26.0",
+    "babel-plugin-external-helpers": "^6.22.0",
+    "babel-preset-env": "^1.6.0",
+    "base64-js": "^1.2.1",
+    "bootstrap": "^3.3.7",
+    "chokidar-cli": "^1.2.0",
+    "jquery": "^3.2.1",
+    "jqueryui": "^1.11.1",
+    "live-server": "^1.2.0",
+    "object.entries": "^1.0.4",
+    "query-string": "^5.0.1",
+    "re-reselect": "^1.0.1",
+    "react": "^16.2.0",
+    "react-dom": "^16.2.0",
+    "react-popper": "^0.7.5",
+    "react-redux": "^5.0.6",
+    "react-transition-group": "^2.2.1",
+    "reactstrap": "^5.0.0-alpha.4",
+    "redux": "^4.0.0-beta.1",
+    "reselect": "^3.0.1",
+    "rollup": "^0.53.3",
+    "rollup-plugin-babel": "^3.0.2",
+    "rollup-plugin-commonjs": "^8.2.0",
+    "rollup-plugin-node-resolve": "^3.0.0",
+    "rollup-plugin-replace": "^2.0.0",
+    "rollup-plugin-sourcemaps": "^0.4.2",
+    "rollup-plugin-typescript2": "^0.9.0",
+    "rollup-plugin-uglify": "^2.0.1",
+    "rollup-watch": "^4.3.1",
+    "socket.io-client": "^2.0.4",
+    "type-zoo": "^1.0.1",
+    "typescript": "^2.6.2",
+    "uglify-es": "^3.0.28",
+    "url-parse": "^1.2.0"
+  },
+  "dependencies": {
+    "secure-random": "^1.1.1"
+  }
+}

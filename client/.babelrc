@@ -1,0 +1,17 @@
+{
+  "plugins": [
+    "external-helpers"
+  ],
+  "presets": [
+    [
+      "env",
+      {
+        "targets": [
+          ">= 0.1%"
+        ],
+        "modules": false,
+        "sourceMaps": "both"
+      }
+    ]
+  ]
+}
