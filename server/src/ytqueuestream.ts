@@ -31,12 +31,7 @@ export class YtQueueStream {
             const audioOnlyFormats = ytdl.filterFormats(ytdlInfo.formats, 'audioonly')
                 .sort((a, b) => a.audioBitrate - b.audioBitrate);
             if (audioOnlyFormats) {
-                const opusFormat = audioOnlyFormats.filter(fmt => fmt.audioEncoding === 'opus');
-                if (opusFormat) {
-                    format = opusFormat[0];
-                } else {
-                    format = audioOnlyFormats[0];
-                }
+                format = audioOnlyFormats[0];
             }
             if (format instanceof Error) {
                 throw format;
