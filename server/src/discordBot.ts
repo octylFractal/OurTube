@@ -27,7 +27,7 @@ function onJoinGuild(guild: Discord.Guild) {
                 });
                 currentQueueStream = newQueueStream(guild.id);
                 currentQueueStream.start((songData, stream) => {
-                    return voiceConnection.playConvertedStream(stream);
+                    return voiceConnection.playStream(stream);
                 });
             })
             .catch(err => {

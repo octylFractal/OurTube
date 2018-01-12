@@ -51,9 +51,8 @@ export class YtQueueStream {
                 }
             });
             opus
-                .audioFrequency(48000)
                 .audioChannels(2)
-                .outputFormat('s16le')
+                .outputFormat('flac')
                 .audioFilter('volume=0.3');
             const opusPipe = through();
             opus.pipe(opusPipe);
