@@ -27,16 +27,15 @@ export class YtQueueStream {
             return ytdl.getInfo('https://www.youtube.com/watch?v=' + song)
                 .then(ytdlInfo => ({videoData: videoData, ytdlInfo: ytdlInfo}));
         }).then(({videoData, ytdlInfo}) => {
-            let format = ytdl.chooseFormat(ytdlInfo.formats, {quality: 'lowest'});
-            const audioOnlyFormats = ytdl.filterFormats(ytdlInfo.formats, 'audioonly')
-                .sort((a, b) => a.audioBitrate - b.audioBitrate);
-            if (audioOnlyFormats) {
-                format = audioOnlyFormats[0];
+            const formats = ytdlInfo.formats;
+            let highest = formats[0];
+            for (let format of formats) {
+                if (!highest.audioBitrate || (format.audioBitrate
+                        && (format.audioBitrate > highest.audioBitrate
+                            || (format.audioBitrate === highest.audioBitrate && !format.encoding))))
+                    highest = format;
             }
-            if (format instanceof Error) {
-                throw format;
-            }
-            return {videoData: videoData, info: ytdlInfo, format: format};
+            return {videoData: videoData, info: ytdlInfo, format: highest};
         }).then(({videoData, info, format}) => {
             const stream = ytdl.downloadFromInfo(info, {
                 format: format,
