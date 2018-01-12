@@ -35,6 +35,7 @@ export class YtQueueStream {
                             || (format.audioBitrate === highest.audioBitrate && !format.encoding))))
                     highest = format;
             }
+            console.log("Fulfilling YTDL with", highest);
             return {videoData: videoData, info: ytdlInfo, format: highest};
         }).then(({videoData, info, format}) => {
             const stream = ytdl.downloadFromInfo(info, {
