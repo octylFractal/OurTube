@@ -28,7 +28,7 @@ function onJoinGuild(guild: Discord.Guild) {
                 voiceConnection.on('disconnect', msg => console.log('VC disconnected.', msg));
                 voiceConnection.on('reconnecting', () => console.log('VC reconnecting.'));
                 currentQueueStream = newQueueStream(guild.id);
-                currentQueueStream.start((songData, stream) => {
+                currentQueueStream.start((stream) => {
                     return voiceConnection.playStream(stream);
                 });
             })
