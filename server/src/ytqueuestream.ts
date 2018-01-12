@@ -50,8 +50,9 @@ export class YtQueueStream {
                 }
             });
             opus
-                .audioQuality(3)
-                .outputFormat('mp3')
+                .audioFrequency(48000)
+                .audioChannels(2)
+                .outputFormat('s16le')
                 .audioFilter('volume=0.3');
             const opusPipe = through();
             opus.pipe(opusPipe);

@@ -19,9 +19,15 @@ function onJoinGuild(guild: Discord.Guild) {
         currentQueueStream && currentQueueStream.cancel();
         channel.join()
             .then(voiceConnection => {
+                voiceConnection.on('debug', msg => {
+                    console.log('VC debug', msg);
+                });
+                voiceConnection.on('warn', msg => {
+                    console.log('VC warn', msg);
+                });
                 currentQueueStream = newQueueStream(guild.id);
                 currentQueueStream.start((songData, stream) => {
-                    return voiceConnection.playStream(stream);
+                    return voiceConnection.playConvertedStream(stream);
                 });
             })
             .catch(err => {
