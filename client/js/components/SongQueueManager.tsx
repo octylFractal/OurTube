@@ -1,8 +1,11 @@
 import React, {FormEvent} from "react";
 import {connect} from "react-redux";
-import {InternalState} from "../reduxish/store";
+import {InternalState, SongProgress} from "../reduxish/store";
 import {SongData} from "../reduxish/SongData";
-import {Button, Card, CardImg, CardImgOverlay, CardTitle, Col, Form, FormGroup, Input, Label, Row} from 'reactstrap';
+import {
+    Button, Card, CardImg, CardBody, CardTitle, Col, Form, FormGroup, Input, Label, Progress,
+    Row
+} from 'reactstrap';
 import parse from "url-parse";
 import {API} from "../websocket/api";
 import {AvailableChannelSelector} from "./ChannelSelector";
@@ -37,6 +40,7 @@ const SongAddForm = (props: { guildId: string }) => {
         if (!songId) {
             return;
         }
+        $input.val('');
         API.queueSong(props.guildId, songId);
     };
     return <Form onSubmit={submissionHandler}>
@@ -54,23 +58,39 @@ const SongAddForm = (props: { guildId: string }) => {
     </Form>;
 };
 
-const SongQueueItem = (props: { song: SongData }) => {
+function skipSong(guildId: string) {
+    API.skipSong(guildId);
+}
+
+const SongQueueItem = (props: { guildId: string, song: SongData, progress: number }) => {
     let thumbnail = props.song.thumbnail;
     return <li className="list-group-item">
-        <Card style={{width: thumbnail.width}} className="m-auto border-primary border">
-            <CardImg src={thumbnail.url} alt=""/>
-            <CardImgOverlay>
-                <CardTitle className="commutext bg-success text-light rounded">
-                    {props.song.name}
-                </CardTitle>
-            </CardImgOverlay>
-        </Card>
+        <div className="bg-success rounded p-1">
+            <div className="my-2 rounded border-primary border mx-auto"
+                 style={{width: thumbnail.width, boxSizing: 'content-box'}}>
+                <img className="" src={thumbnail.url} height={thumbnail.height} alt=""/>
+
+                <Progress animated color="warning" className="rounded-0 bg-light" value={props.progress} max={1000}/>
+            </div>
+            <div className="d-flex align-items-center justify-content-center">
+                <h5 className="commutext text-light mb-0">{props.song.name}</h5>
+                <span className="mx-3 fa-stack fa-lg play-button" aria-hidden={true} onClick={skipSong.bind(null, props.guildId)}>
+                    <i className="fa fa-circle fa-stack-2x pb-background" aria-hidden={true}/>
+                    <i className="fa fa-fast-forward fa-stack-1x" aria-hidden={true}/>
+                </span>
+            </div>
+        </div>
     </li>;
 };
 
-const SongQueueListDisplay = (props: { queuedSongs: SongData[] }) => {
+const SongQueueListDisplay = (props: { guildId: string, queuedSongs: SongData[], songProgress?: SongProgress }) => {
     return <ul className="list-group">
-        {props.queuedSongs.map(qs => <SongQueueItem key={qs.id} song={qs}/>)}
+        {props.queuedSongs.map(qs => {
+            let sp = props.songProgress;
+            // multiply progress up to 1000 for precision
+            const progress = (sp && sp.songId === qs.id) ? sp.progress * 10 : 0;
+            return <SongQueueItem key={qs.id} song={qs} progress={progress} guildId={props.guildId}/>;
+        })}
     </ul>;
 };
 
@@ -85,8 +105,13 @@ const SongQueueList = connect((ISTATE: InternalState) => {
             return arr;
         }
     }, []);
+    if (typeof ISTATE.guild === "undefined") {
+        throw new Error("no u");
+    }
     return {
-        queuedSongs: queuedSongs
+        queuedSongs: queuedSongs,
+        songProgress: ISTATE.songProgress,
+        guildId: ISTATE.guild.instance.id
     };
 })(SongQueueListDisplay);
 

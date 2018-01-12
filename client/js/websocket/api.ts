@@ -13,17 +13,25 @@ export interface SongQueuedCallback {
     (event: SongQueuedEvent): void
 }
 
-
-export type SongPoppedEvent = {
-}
+export type SongPoppedEvent = {}
 
 export interface SongPoppedCallback {
     (event: SongPoppedEvent): void
 }
 
+export type SongProgressEvent = {
+    songId: string,
+    progress: number
+}
+
+export interface SongProgressCallback {
+    (event: SongProgressEvent): void
+}
+
 export type SongQueueCallbacks = {
     queued: SongQueuedCallback,
-    popped: SongPoppedCallback
+    popped: SongPoppedCallback,
+    progress: SongProgressCallback
 }
 
 
@@ -34,6 +42,7 @@ export type ChannelSelectedEvent = {
 export interface ChannelSelectedCallback {
     (event: ChannelSelectedEvent): void
 }
+
 export type DiscordCallbacks = {
     channelSelected: ChannelSelectedCallback
 }
@@ -57,6 +66,8 @@ export interface Api {
     unsubscribeDiscord(guildId: string): void
 
     selectChannel(guildId: string, channelId: string): void
+
+    skipSong(guildId: string): void
 
     close(): void
 }
@@ -86,6 +97,7 @@ class ApiImpl implements Api {
     subscribeSongQueue(guildId: string, callbacks: SongQueueCallbacks): void {
         this.websocket.on('songQueue.queued', callbacks.queued);
         this.websocket.on('songQueue.popped', callbacks.popped);
+        this.websocket.on('songQueue.progress', callbacks.progress);
         this.websocket.emit('songQueue.subscribe', guildId);
     }
 
@@ -132,6 +144,10 @@ class ApiImpl implements Api {
 
     selectChannel(guildId: string, channelId: string): void {
         this.websocket.emit('dis.selectChannel', guildId, channelId);
+    }
+
+    skipSong(guildId: string): void {
+        this.websocket.emit('event.skipSong', guildId);
     }
 
     close(): void {

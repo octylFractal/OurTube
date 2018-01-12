@@ -1,9 +1,9 @@
 import {TrackerCapable} from "./tracker-events";
 
-interface Tracker {
+type Tracker = {
     pop: () => void
     push: (songId: string) => void
-}
+};
 
 const NULL_TRACKER: Tracker = {
     pop() {

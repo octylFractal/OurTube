@@ -5,6 +5,9 @@ import {DISCORD_BOT} from "./discordBot";
 import {Unsubscribe} from "./tracker-events";
 import Socket = SocketIO.Socket;
 import {GUILD_CHANNELS} from "./GuildChannel";
+import {getVideoData, Thumbnail} from "./ytapi";
+import {SONG_PROGRESS} from "./SongProgress";
+import {EVENTS} from "./Event";
 
 function emitQueued(ws: Socket, id: string) {
     ws.emit('songQueue.queued', {youtubeId: id});
@@ -18,7 +21,9 @@ function setupSongQueue(ws: Socket) {
 
         subscriptions.push(
             SONG_QUEUE.on('pop', guildId, () => ws.emit('songQueue.popped')),
-            SONG_QUEUE.on('push', guildId, (pushed: string) => emitQueued(ws, pushed))
+            SONG_QUEUE.on('push', guildId, (pushed: string) => emitQueued(ws, pushed)),
+
+            SONG_PROGRESS.on('newProgress', guildId, progress => ws.emit('songQueue.progress', progress))
         );
     });
     ws.on('songQueue.unsubscribe', () => {
@@ -35,6 +40,8 @@ export interface SongData {
     id: string
     name: string
     thumbnail: Thumbnail
+    // in millis
+    duration: number
 }
 
 interface Response<T> {
@@ -62,52 +69,13 @@ class GoodResponse<T> implements Response<T> {
     }
 }
 
-const youtube = google.youtube('v3');
-
-interface Thumbnail {
-    url: string
-    width: number
-    height: number
-}
-
-interface Thumbnails {
-    default: Thumbnail
-    medium: Thumbnail
-    high: Thumbnail
-    standard: Thumbnail
-    maxres: Thumbnail
-}
-
-interface Snippet {
-    title: string
-    thumbnails: Thumbnails
-}
-
 type ResponseFunc<T> = (data: Response<T>) => void
 
 function setupYoutubeQueries(ws: Socket) {
     ws.on('yt.songData', (songId: string, response: ResponseFunc<SongData>) => {
-        const ytReq = youtube.videos.list({
-            auth: secrets.YT_API_KEY,
-            id: songId,
-            part: 'snippet'
-        }, (error: any, data: any) => {
-            if (error) {
-                response(new ErrorResponse(error));
-            } else {
-                const items: { snippet: Snippet }[] = data.items;
-                if (items.length === 0) {
-                    response(new ErrorResponse("No items, invalid id?"));
-                    return;
-                }
-                let snip = items[0].snippet;
-                response(new GoodResponse({
-                    id: songId,
-                    name: snip.title,
-                    thumbnail: snip.thumbnails.medium
-                }));
-            }
-        });
+        getVideoData(songId)
+            .then(value => response(new GoodResponse(value)))
+            .catch(error => response(new ErrorResponse(error)));
     });
 }
 
@@ -156,8 +124,15 @@ function setupDiscordQueries(ws: Socket) {
     });
 }
 
+function setupEvents(ws: Socket) {
+    ws.on('event.skipSong', (guildId: string) => {
+        EVENTS.skipSong(guildId);
+    })
+}
+
 export function setupApi(websocket: Socket) {
     setupSongQueue(websocket);
     setupYoutubeQueries(websocket);
     setupDiscordQueries(websocket);
+    setupEvents(websocket);
 }

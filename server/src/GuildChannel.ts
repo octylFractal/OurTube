@@ -1,8 +1,8 @@
 import {TrackerCapable} from "./tracker-events";
 
-interface Tracker {
+type Tracker = {
     newChannel: (channelId: string) => void
-}
+};
 
 const NULL_TRACKER: Tracker = {
     newChannel() {
@@ -24,7 +24,6 @@ export class GuildChannel extends TrackerCapable<Tracker> {
 
     setChannel(guildId: string, channelId: string) {
         const old = this.channels.get(guildId);
-        console.log(guildId, channelId, 'ow', old);
         if (old !== channelId) {
             this.channels.set(guildId, channelId);
 

@@ -30,3 +30,12 @@ body {
 .border-2 {
     border: 2px solid;
 }
+
+.play-button .pb-background {
+    color: #17CCCC;
+}
+
+.play-button:hover .pb-background {
+    color: #18E7E7;
+}
+

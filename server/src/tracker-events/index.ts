@@ -2,7 +2,7 @@ export interface Unsubscribe {
     (): void
 }
 
-export class TrackerCapable<TRACKER> {
+export class TrackerCapable<TRACKER extends {[k: string]: Function}> {
     private nullTracker: TRACKER;
     private trackers = new Map<string, Map<string, TRACKER>>();
 
@@ -35,5 +35,13 @@ export class TrackerCapable<TRACKER> {
         const map = this.getTrackerMapOrCreate(guildId);
         map.set(key, t);
         return () => map.delete(key);
+    }
+
+    once<K extends keyof TRACKER>(event: K, guildId: string, tracker: TRACKER[K]): Unsubscribe {
+        const unsub = this.on(event, guildId, () => {
+            unsub();
+            tracker.call(this, arguments);
+        });
+        return unsub;
     }
 }

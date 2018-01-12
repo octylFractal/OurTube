@@ -7,10 +7,9 @@ import React from "react";
 import {mainPage} from "./routes/mainPage";
 import {hookFields} from "./invaildateforms";
 import {Provider} from "react-redux";
-import {Actions, ISTATE} from "./reduxish/store";
+import {ISTATE} from "./reduxish/store";
 import queryString from "query-string";
 import {discordLogin} from "./discordLoginImport";
-import {Action} from "redux";
 
 function getRoutes() {
     const routes = new Map<string, Route>();
@@ -27,16 +26,18 @@ $(() => {
     const navbar = createNavbar();
     const routes = getRoutes();
     ReactDOM.render(
-        <Provider store={ISTATE}>
-            <div>
-                {navbar}
-                {
-                    discordRedirect()
-                        ? null
-                        : <Router paths={routes}/>
-                }
-            </div>
-        </Provider>,
+        <div>
+            <Provider store={ISTATE}>
+                <div>
+                    {navbar}
+                    {
+                        discordRedirect()
+                            ? null
+                            : <Router paths={routes}/>
+                    }
+                </div>
+            </Provider>
+        </div>,
         document.getElementById("container"),
         () => {
             hookFields();

@@ -1,8 +1,33 @@
 import * as Discord from "discord.js";
 import {secrets} from "./secrets";
+import {GUILD_CHANNELS} from "./GuildChannel";
+import {newQueueStream, YtQueueStream} from "./ytqueuestream";
 
-function onJoinGuild() {
-
+function onJoinGuild(guild: Discord.Guild) {
+    console.log('joins', guild.name);
+    let currentQueueStream: YtQueueStream | undefined = undefined;
+    GUILD_CHANNELS.on('newChannel', guild.id, channelId => {
+        const channel = guild.channels.get(channelId);
+        if (!channel) {
+            return;
+        }
+        if (!(channel instanceof Discord.VoiceChannel)) {
+            return;
+        }
+        let vc = guild.voiceConnection;
+        vc && vc.disconnect();
+        currentQueueStream && currentQueueStream.cancel();
+        channel.join()
+            .then(voiceConnection => {
+                currentQueueStream = newQueueStream(guild.id);
+                currentQueueStream.start((songData, stream) => {
+                    return voiceConnection.playStream(stream);
+                });
+            })
+            .catch(err => {
+                console.error('Failed to join voice channel', channelId, err);
+            });
+    });
 }
 
 function setupBot() {
@@ -10,11 +35,19 @@ function setupBot() {
     bot.login(secrets.DISCORD_TOKEN).catch(err => console.error('Discord log in error!', err));
 
     bot.on('guildCreate', guild => {
-        console.log('joins', guild.name);
+        onJoinGuild(guild);
     });
     bot.on('ready', () => {
         console.log('Ready as I will ever be.');
-        console.log(bot.guilds);
+        bot.guilds.forEach(onJoinGuild);
+    });
+    bot.on('message', (e) => {
+        if (e.channel.type === 'dm') {
+            e.author.sendMessage('no u').catch(err => console.log('error', err, e.author));
+        }
+    });
+    bot.on('error', error => {
+        console.error('bot.error', error);
     });
 
     return bot;

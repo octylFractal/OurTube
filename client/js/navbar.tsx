@@ -76,19 +76,12 @@ function deleteThisNephew() {
 }
 
 const NavGuildIcon = (props: { guild: DiscordGuild }) => {
-    // return <GuildIcon idPrefix="navbar" guild={props.guild}
-    //                   onClick={props.guild === UNKNOWN_GUILD ? undefined : deleteThisNephew}/>;
-    const tooltipId = `navbar-${props.guild.id}`;
-    return <div>
-        <SimpleTooltip target={tooltipId} delay={0}>
-            <span>Some Good Content</span>
-        </SimpleTooltip>
-        <div id={tooltipId} onClick={deleteThisNephew}>Hoverable Content</div>
-    </div>;
+    return <GuildIcon idPrefix="navbar" guild={props.guild}
+                      onClick={props.guild === UNKNOWN_GUILD ? undefined : deleteThisNephew}/>;
 };
 const UNKNOWN_GUILD: DiscordGuild = {
     id: 'fakeIdNumeroUno',
-    name: '? No Guild Selected',
+    name: '??? No Guild Selected',
     icon: null
 };
 const SelectedGuildIcon = connect((ISTATE: InternalState) => {

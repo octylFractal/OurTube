@@ -13,11 +13,17 @@ import {LSConst} from "../lsConst";
 
 type SongDataCache = { [songKey: string]: SongData };
 
+export interface SongProgress {
+    songId: string
+    progress: number
+}
+
 export interface InternalState {
     discord?: DiscordInformation
     guild?: GuildInformation
     discordGuilds: DiscordGuild[]
     songQueue: Array<string>
+    songProgress?: SongProgress
     songDataCache: SongDataCache
 }
 
@@ -68,24 +74,21 @@ export const Actions = annotateFunctions({
     setChannels: (prevState: GuildInformation, payload: DiscordChannel[]): GuildInformation => {
         return {...prevState, channels: payload};
     },
-    setApi: (prevState: Api | undefined, payload: Api | undefined) => {
-        if (isDefined(prevState) && prevState !== payload) {
-            prevState.close();
-        }
-        return payload;
-    },
     queueSong: (prevState: Array<string>, payload: string) => {
         return prevState.concat(payload);
     },
     popSong: (prevState: Array<string>) => {
         return prevState.slice(1);
     },
+    updateProgress: (prevState: SongProgress, payload: SongProgress): SongProgress => {
+        return payload;
+    },
     cacheSongData: (prevState: SongDataCache, payload: { key: string, value: SongData }) => {
         return {...prevState, [payload.key]: payload.value};
     }
 });
 
-const slices: SliceMap = new Map(Object.entries({
+const slices: SliceMap<InternalState> = {
     discord: [
         Actions.updateInformation
     ],
@@ -97,16 +100,17 @@ const slices: SliceMap = new Map(Object.entries({
     discordGuilds: [
         Actions.setGuilds
     ],
-    apiAccess: [
-        Actions.setApi
-    ],
     songQueue: [
-        Actions.queueSong
+        Actions.queueSong,
+        Actions.popSong
+    ],
+    songProgress: [
+        Actions.updateProgress
     ],
     songDataCache: [
         Actions.cacheSongData
     ]
-}));
+};
 
 const reducer = createSliceDistributor(slices, defaultState);
 
@@ -158,6 +162,9 @@ observeStoreSlice(ISTATE, state => e(state)('guild')('instance').val, (guild) =>
         },
         popped() {
             ISTATE.dispatch(Actions.popSong(undefined));
+        },
+        progress(event) {
+            ISTATE.dispatch(Actions.updateProgress(event));
         }
     });
     API.subscribeDiscord(guild.id, {
