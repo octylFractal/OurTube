@@ -1,13 +1,14 @@
 import {SONG_QUEUE} from "./GuildQueue";
 import * as google from "googleapis";
 import {secrets} from "./secrets";
-import {DISCORD_BOT} from "./discordBot";
+import {DISCORD_BOT, DISCORD_GUILDS} from "./discordBot";
 import {Unsubscribe} from "./tracker-events";
 import Socket = SocketIO.Socket;
 import {GUILD_CHANNELS} from "./GuildChannel";
 import {getVideoData, Thumbnail} from "./ytapi";
 import {SONG_PROGRESS} from "./SongProgress";
 import {EVENTS} from "./Event";
+import {ChannelType} from "./discordTypes";
 
 function emitQueued(ws: Socket, id: string) {
     ws.emit('songQueue.queued', {youtubeId: id});
@@ -91,17 +92,19 @@ function emitChannel(ws: Socket, id: string | undefined) {
 function setupDiscordQueries(ws: Socket) {
     // filters provided guilds by guilds the bot is in
     ws.on('dis.filterGuilds', (guildIds: string[], response: ResponseFunc<string[]>) => {
-        const botGuilds = DISCORD_BOT.guilds;
-        let filteredIds = guildIds.filter(gid => botGuilds.has(gid));
+        const botGuilds = DISCORD_GUILDS;
+        let filteredIds = guildIds.filter(gid => botGuilds[gid]);
         response(new GoodResponse(filteredIds));
     });
     ws.on('dis.channels', (guildId: string, response: ResponseFunc<DiscordChannel[]>) => {
-        const guild = DISCORD_BOT.guilds.get(guildId);
+        const guild = DISCORD_GUILDS[guildId];
         if (typeof guild === "undefined") {
             response(new ErrorResponse('bot is not part of that guild'));
             return;
         }
-        const channels = guild.channels.filter(ch => ch.type === 'voice');
+        const channels = Object.entries(guild.channels)
+            .map(([k, ch]) => ch)
+            .filter(ch => ch.type === ChannelType.GUILD_VOICE);
         const res = channels.map(ch => ({id: ch.id, name: ch.name}));
         response(new GoodResponse(res));
     });

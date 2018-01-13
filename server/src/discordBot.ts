@@ -1,63 +1,86 @@
-import * as Discord from "discord.js";
 import {secrets} from "./secrets";
 import {GUILD_CHANNELS} from "./GuildChannel";
 import {newQueueStream, YtQueueStream} from "./ytqueuestream";
+import {cbError, ChannelType, PartialGuild} from "./discordTypes";
+import * as Discord from "discord.io";
 
-function onJoinGuild(guild: Discord.Guild) {
+function cbToPromise<T>(acceptor: (cb: (error: cbError, response: T) => void) => void): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        acceptor((error, result) => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve(result);
+            }
+        });
+    });
+}
+
+function onJoinGuild(guild: PartialGuild) {
     console.log('joins', guild.name);
+    DISCORD_GUILDS[guild.id] = guild;
     let currentQueueStream: YtQueueStream | undefined = undefined;
     GUILD_CHANNELS.on('newChannel', guild.id, channelId => {
-        const channel = guild.channels.get(channelId);
+        const channel = guild.channels[channelId];
         if (!channel) {
+            console.log('Not a channel', channelId);
             return;
         }
-        if (!(channel instanceof Discord.VoiceChannel)) {
+        if (channel.type !== ChannelType.GUILD_VOICE) {
+            console.log('Not a voice channel', channel);
             return;
         }
-        let vc = guild.voiceConnection;
-        vc && vc.disconnect();
         currentQueueStream && currentQueueStream.cancel();
-        channel.join()
-            .then(voiceConnection => {
-                voiceConnection.on('debug', msg => {
-                    console.log('VC debug', msg);
-                });
-                voiceConnection.on('warn', msg => {
-                    console.log('VC warn', msg);
-                });
-                voiceConnection.on('disconnect', msg => console.log('VC disconnected.', msg));
-                voiceConnection.on('reconnecting', () => console.log('VC reconnecting.'));
+        cbToPromise(cb => DISCORD_BOT.joinVoiceChannel(channelId, cb))
+            .then(() => {
+                return cbToPromise<NodeJS.WritableStream>(cb => DISCORD_BOT.getAudioContext(channelId, cb));
+            })
+            .then(voiceStream => {
                 currentQueueStream = newQueueStream(guild.id);
                 currentQueueStream.start((stream) => {
-                    return voiceConnection.playStream(stream);
+                    stream.pipe(voiceStream);
+                    return new Promise<void>(resolve => {
+                        voiceStream.on('done', () => resolve());
+                    });
                 });
             })
             .catch(err => {
-                console.error('Failed to join voice channel', channelId, err);
+                console.error(`Error attaching to channel voice (id=${channelId}):`, err);
             });
     });
 }
 
-function setupBot() {
-    const bot = new Discord.Client();
-    bot.login(secrets.DISCORD_TOKEN).catch(err => console.error('Discord log in error!', err));
+export const DISCORD_GUILDS: { [key: string]: PartialGuild } = {};
 
-    bot.on('guildCreate', guild => {
+function setupBot() {
+    const bot = new Discord.Client({
+        token: secrets.DISCORD_TOKEN,
+        autorun: true
+    });
+    bot.on('disconnect', (msg, code) => {
+        console.error('Oof ouch owie my websocket', msg, code);
+    });
+
+    bot.on('guildCreate', (guild: PartialGuild) => {
         onJoinGuild(guild);
     });
     bot.on('ready', () => {
-        console.log('Ready as I will ever be.');
-        bot.guilds.forEach(onJoinGuild);
+        console.log('Ready as I will ever be. Username=' + bot.username);
     });
-    bot.on('message', (e) => {
-        if (e.channel.type === 'dm') {
-            e.author.sendMessage('no u').catch(err => console.log('error', err, e.author));
+    bot.on('message', (user, userID, channelID, message) => {
+        if (bot.username !== user && bot.directMessages[channelID]) {
+            const reply = message === '42' ? '**WHAT DO YOU GET WHEN YOU MULTIPLY SIX BY NINE?**' : 'no u';
+            bot.sendMessage({
+                to: channelID,
+                message: reply
+            });
         }
     });
-    bot.on('error', error => {
+    bot.on('error', (error: any) => {
         console.error('bot.error', error);
     });
 
+    console.log('Bot initialized...');
     return bot;
 }
 

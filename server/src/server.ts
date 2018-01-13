@@ -3,7 +3,9 @@ import {Server} from "http";
 import * as socketIo from "socket.io";
 import {setupApi} from "./api";
 import "./discordBot";
+import {shim} from "object.entries";
 
+shim();
 
 const app = express();
 const server = new Server(app);

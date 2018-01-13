@@ -1,20 +1,17 @@
 import {SONG_QUEUE} from "./GuildQueue";
-import {StreamDispatcher} from "discord.js";
 import {SongData} from "./api";
 import {getVideoData} from "./ytapi";
-import {DISCORD_BOT} from "./discordBot";
 import {SONG_PROGRESS} from "./SongProgress";
 import * as Ffmpeg from "fluent-ffmpeg";
-import {Readable, Duplex, Writable} from "stream";
+import {Duplex, Readable, Transform} from "stream";
 import {EVENTS} from "./Event";
-import ytdl = require("ytdl-core");
 import {Unsubscribe} from "./tracker-events";
 import {getTime as monoclockGetTime} from "monoclock";
+import ytdl = require("ytdl-core");
 import through2 = require('through2');
-import multistream = require('multistream');
-import {FactoryStream} from "multistream";
 
-type StreamAcceptor = (stream: Readable) => StreamDispatcher;
+// promise is the done signal, when it completes, the stream is done playing.
+type StreamAcceptor = (stream: Readable) => Promise<void>;
 
 function getTime() {
     const time = monoclockGetTime();
@@ -25,29 +22,6 @@ function getTime() {
     return s;
 }
 
-enum StreamState {
-    ALIVE, FINISHED
-}
-
-function emitCurrentStream(stream: Readable, count: number, self: Readable): Promise<StreamState> {
-    return new Promise<StreamState>(resolve => {
-        let endState = StreamState.ALIVE;
-        const closeListener = () => {
-            endState = StreamState.FINISHED;
-            stream.removeListener('close', closeListener);
-            resolve(endState);
-        };
-        stream.addListener('close', closeListener);
-
-        const listener = (data: Buffer) => {
-            if (count == 1 || !self.push(data)) {
-                stream.removeListener('data', listener);
-                stream.removeListener('close', closeListener);
-            }
-        };
-        stream.addListener('data', listener);
-    });
-}
 
 type StreamData = {
     stream: Duplex,
@@ -55,10 +29,30 @@ type StreamData = {
     videoData: SongData
 };
 
+class BestTransform extends Transform {
+    canceled: boolean;
+    constructor() {
+        super({
+            allowHalfOpen: false
+        });
+        this.canceled = false;
+    }
+    _transform(chunk: any, encoding: string, callback: Function) {
+        if (!this.canceled) {
+            console.log('Pushing...');
+            this.push(chunk);
+        } else {
+            console.log('Pushing EOS');
+            this.push(null);
+            this.destroy();
+        }
+        callback();
+    }
+}
+
 export class YtQueueStream {
     private guildId: string;
     private currentSub: Unsubscribe | undefined;
-    private infiniStream: Duplex | undefined;
     private current: StreamData | undefined;
 
     constructor(guildId: string) {
@@ -83,8 +77,7 @@ export class YtQueueStream {
             return {videoData: videoData, info: ytdlInfo, format: highest};
         }).then(({videoData, info, format}) => {
             const stream = ytdl.downloadFromInfo(info, {
-                format: format,
-                highWaterMark: 10 * 1024 * 1024
+                format: format
             });
             const opus = Ffmpeg(stream, {
                 logger: {
@@ -100,7 +93,6 @@ export class YtQueueStream {
                 .audioFilter('volume=0.3');
             const outputStream = through2();
             opus.pipe(outputStream);
-
 
             return {
                 stream: outputStream,
@@ -127,65 +119,54 @@ export class YtQueueStream {
         });
     }
 
-    start(streamAcceptor: StreamAcceptor) {
-        const self = this;
-        const factory: FactoryStream = (cb) => {
-            console.log("Request for more stream data!");
-            self.playNext().then(stream => {
-                this.current = stream;
-                const self = this;
-                const t2 = stream.stream.pipe(through2(function (this, chunk, enc, cb) {
-                    if (self.current) {
-                        this.push(chunk);
-                    } else {
-                        this.push(null);
-                    }
-                    cb();
-                }));
-                t2.on('end', () => {
+    playAgain(streamAcceptor: StreamAcceptor) {
+        this.playNext().then(stream => {
+            this.current = stream;
+            const self = this;
+            const t2 = new BestTransform();
+            stream.stream.pipe(t2);
+
+            const timer = setInterval(() => {
+                if (this.current === undefined) {
+                    return;
+                }
+                const newTime = getTime();
+                const diffTime = newTime - this.current.time;
+                const diffTimeMs = diffTime * 1000;
+                const progress = (diffTimeMs / this.current.videoData.duration) * 100;
+
+                SONG_PROGRESS.setProgress(this.guildId, {
+                    songId: this.current.videoData.id,
+                    progress: progress
+                });
+            }, 100);
+
+            const subscriptions = [
+                EVENTS.on('skipSong', this.guildId, () => {
+                    this.current = undefined;
+                    t2.canceled = true;
+                    stream.stream.unpipe(t2);
+                    stream.stream.destroy();
+                })
+            ];
+
+            streamAcceptor(t2)
+                .then(() => {
                     self.current = undefined;
+
+                    clearInterval(timer);
+
+                    subscriptions.forEach(usub => usub());
 
                     console.log('End of song, trading over!');
                     SONG_QUEUE.popSong(self.guildId);
+                    setTimeout(() => this.playAgain(streamAcceptor), 100);
                 });
-                cb(null, t2);
-            }, err => cb(err, null));
-        };
-        const stream = multistream(factory);
-        this.infiniStream = through2();
-        stream.pipe(this.infiniStream);
+        }, err => console.error('stream error', err));
+    }
 
-        const timer = DISCORD_BOT.setInterval(() => {
-            if (this.current === undefined) {
-                return;
-            }
-            const newTime = getTime();
-            const diffTime = newTime - this.current.time;
-            const diffTimeMs = diffTime * 1000;
-            const progress = (diffTimeMs / this.current.videoData.duration) * 100;
-
-            SONG_PROGRESS.setProgress(this.guildId, {
-                songId: this.current.videoData.id,
-                progress: progress
-            });
-        }, 100);
-
-        const subscriptions = [
-            EVENTS.on('skipSong', this.guildId, () => {
-                this.current = undefined;
-            })
-        ];
-        const disStream = streamAcceptor(this.infiniStream);
-        disStream.on('debug', (msg: string) => console.log('debug', msg));
-        disStream.on('error', (err: any) => {
-            console.log('Error in readStream', err);
-            subscriptions.forEach(unsub => unsub());
-            DISCORD_BOT.clearInterval(timer);
-        });
-        disStream.on('end', () => {
-            subscriptions.forEach(unsub => unsub());
-            DISCORD_BOT.clearInterval(timer);
-        });
+    start(streamAcceptor: StreamAcceptor) {
+        this.playAgain(streamAcceptor);
     }
 
     cancel() {
