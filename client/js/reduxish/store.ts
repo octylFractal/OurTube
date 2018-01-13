@@ -148,6 +148,7 @@ observeStoreSlice(ISTATE, state => e(state)('discord')('accessToken').val, (acce
 observeStoreSlice(ISTATE, state => e(state)('guild')('instance').val, (guild) => {
     if (!guild) {
         API.unsubscribeSongQueue();
+        API.unsubscribeDiscord();
         ISTATE.dispatch(Actions.setChannels([]));
         return;
     }

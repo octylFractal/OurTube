@@ -102,6 +102,9 @@ class ApiImpl implements Api {
     }
 
     unsubscribeSongQueue(): void {
+        this.websocket.off('songQueue.queued');
+        this.websocket.off('songQueue.popped');
+        this.websocket.off('songQueue.progress');
         this.websocket.emit('songQueue.unsubscribe');
     }
 
@@ -139,6 +142,7 @@ class ApiImpl implements Api {
     }
 
     unsubscribeDiscord(): void {
+        this.websocket.off('dis.selectedChannel');
         this.websocket.emit('dis.unsubscribe');
     }
 
