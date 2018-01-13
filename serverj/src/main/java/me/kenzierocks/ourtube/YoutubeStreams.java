@@ -34,7 +34,6 @@ import java.util.concurrent.Executors;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
 
 import org.slf4j.Logger;
 
@@ -57,28 +56,42 @@ public class YoutubeStreams {
 
     /**
      * 
-     * @param songId
+     * @param songData
      * @return PCM audio tuned to discord4j internal specs for optimization
      */
-    public static AudioInputStream newStream(String songId) {
-        String url = "https://www.youtube.com/watch?v=" + songId;
+    public static AudioInputStream newStream(SongData songData) {
+        String url = "https://www.youtube.com/watch?v=" + songData.getId();
         LOGGER.debug("{}: Acquring download...", url);
         InputStream dl = callYtdl(url);
 
         LOGGER.debug("{}: Transcoding...", url);
-        return new AudioInputStream(callFfmpeg(dl), FFMPEG_OUT_FORMAT, AudioSystem.NOT_SPECIFIED);
+        float frameLength = computeFrameLength(songData);
+        return new AudioInputStream(callFfmpeg(dl), FFMPEG_OUT_FORMAT, (long) Math.ceil(frameLength));
+    }
+
+    private static float computeFrameLength(SongData songData) {
+        // R = frame rate, in frames/sec
+        // Dms = duration, in milliseconds
+        // L = frame length, in frames
+        // Ds = duration, in seconds
+        // Ds = Dms / 1000
+        // L = Ds * R
+        // we move the division to R because it's lossless that way
+        float frameRate = FFMPEG_OUT_FORMAT.getFrameRate();
+        float frameLength = (songData.getDuration() * (frameRate / 1000f));
+        return frameLength;
     }
 
     private static final ExecutorService CHECKER = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("stream-checker-%d").setPriority(Thread.MIN_PRIORITY).build());
     private static final ExecutorService WRITER = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("stream-writer-%d").build());
-    
+
     private static final BitSet YTDL_OK = new BitSet();
     static {
         YTDL_OK.set(1);
     }
-    
+
     private static final BitSet FFMPEG_OK = new BitSet();
     static {
         FFMPEG_OK.set(1);

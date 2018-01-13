@@ -29,7 +29,11 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import javax.sound.sampled.AudioInputStream;
 
+import org.slf4j.Logger;
+
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.FutureCallback;
 
 import me.kenzierocks.ourtube.events.SkipSong;
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
@@ -50,6 +54,7 @@ import sx.blah.discord.util.audio.AudioPlayer.Track;
 import sx.blah.discord.util.audio.events.AudioPlayerEvent;
 import sx.blah.discord.util.audio.events.TrackFinishEvent;
 import sx.blah.discord.util.audio.events.TrackSkipEvent;
+import sx.blah.discord.util.audio.events.TrackStartEvent;
 
 public class Dissy {
 
@@ -62,6 +67,8 @@ public class Dissy {
 
     private static final class OurTubePipe {
 
+        private static final Logger LOGGER = Log.get();
+
         private final String guildId;
         private final AudioPlayer player;
         private final Lock waitLock = new ReentrantLock();
@@ -70,27 +77,35 @@ public class Dissy {
         public OurTubePipe(String guildId, AudioPlayer player) {
             this.guildId = guildId;
             this.player = player;
-            BOT.getDispatcher().registerListener(new Object() {
+        }
 
-                @EventSubscriber
-                public void onTrackFinish(TrackFinishEvent event) {
-                    onTrackEnd(event);
-                }
+        @EventSubscriber
+        public void onTrackStart(TrackStartEvent event) {
+            if (event.getPlayer().getGuild().getLongID() != player.getGuild().getLongID()) {
+                return;
+            }
+            Track track = event.getTrack();
+            AsyncService.GENERIC.submit(new AudioUpdatesTask(player, track, (String) track.getMetadata().get("songId")));
+        }
 
-                @EventSubscriber
-                public void onTrackSkip(TrackSkipEvent event) {
-                    onTrackEnd(event);
-                }
+        @EventSubscriber
+        public void onTrackFinish(TrackFinishEvent event) {
+            onTrackEnd(event);
+        }
 
-                private void onTrackEnd(AudioPlayerEvent event) {
-                    if (event.getPlayer().getGuild().getLongID() != player.getGuild().getLongID()) {
-                        return;
-                    }
-                    GuildQueue.INSTANCE.popSong(guildId);
-                    // don't block the threads, idiot!
-                    AsyncService.GENERIC.execute(() -> playNext());
-                }
-            });
+        @EventSubscriber
+        public void onTrackSkip(TrackSkipEvent event) {
+            onTrackEnd(event);
+        }
+
+        private void onTrackEnd(AudioPlayerEvent event) {
+            if (event.getPlayer().getGuild().getLongID() != player.getGuild().getLongID()) {
+                return;
+            }
+            BOT.getDispatcher().unregisterListener(this);
+            GuildQueue.INSTANCE.popSong(guildId);
+            // don't block the threads, idiot!
+            AsyncService.GENERIC.execute(() -> playNext());
         }
 
         @Subscribe
@@ -137,8 +152,23 @@ public class Dissy {
         }
 
         private void play(String songId) {
-            AudioInputStream pcmData = YoutubeStreams.newStream(songId);
-            player.queue(new Track(pcmData));
+            FluentFuture<SongData> songData = FluentFuture.from(YoutubeAccess.INSTANCE.getVideoData(songId));
+            FluentFuture<AudioInputStream> pcmData = songData.transform(YoutubeStreams::newStream, AsyncService.GENERIC);
+            pcmData.addCallback(new FutureCallback<AudioInputStream>() {
+
+                @Override
+                public void onSuccess(AudioInputStream pcmData) {
+                    BOT.getDispatcher().registerListener(this);
+                    Track track = new Track(pcmData);
+                    track.getMetadata().put("songId", songId);
+                    player.queue(track);
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    LOGGER.error("Error queueing track " + songId, t);
+                }
+            }, AsyncService.GENERIC);
         }
 
     }
@@ -164,6 +194,9 @@ public class Dissy {
                     if (joinEvent.getVoiceChannel().getLongID() != channel.getLongID()) {
                         return;
                     }
+                    if (joinEvent.getUser().getLongID() != BOT.getOurUser().getLongID()) {
+                        return;
+                    }
                     BOT.getDispatcher().unregisterListener(this);
                     AudioPlayer player = AudioPlayer.getAudioPlayerForGuild(guild);
 
@@ -172,6 +205,12 @@ public class Dissy {
 
                         @EventSubscriber
                         public void onLeaveChannel(UserVoiceChannelLeaveEvent leaveEvent) {
+                            if (leaveEvent.getVoiceChannel().getLongID() != channel.getLongID()) {
+                                return;
+                            }
+                            if (leaveEvent.getUser().getLongID() != BOT.getOurUser().getLongID()) {
+                                return;
+                            }
                             player.clear();
                             events.unsubscribe(guild.getStringID(), pipe);
                         }

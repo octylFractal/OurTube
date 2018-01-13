@@ -22,22 +22,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.songprogress;
+package me.kenzierocks.ourtube;
 
-import com.google.auto.value.AutoValue;
+import java.util.concurrent.TimeUnit;
 
-@AutoValue
-public abstract class SongProgress {
+import me.kenzierocks.ourtube.songprogress.SongProgress;
+import me.kenzierocks.ourtube.songprogress.SongProgressMap;
+import sx.blah.discord.util.audio.AudioPlayer;
+import sx.blah.discord.util.audio.AudioPlayer.Track;
 
-    public static SongProgress create(String songId, double progress) {
-        return new AutoValue_SongProgress(songId, progress);
+public class AudioUpdatesTask implements Runnable {
+
+    private final AudioPlayer player;
+    private final Track track;
+    private final String songId;
+
+    public AudioUpdatesTask(AudioPlayer player, Track track, String songId) {
+        this.player = player;
+        this.track = track;
+        this.songId = songId;
     }
 
-    SongProgress() {
+    @Override
+    public void run() {
+        if (player.getCurrentTrack() != this.track) {
+            return;
+        }
+        double progress = (100.0 * track.getCurrentTrackTime()) / (double) track.getTotalTrackTime();
+        SongProgressMap.INSTANCE.setProgress(player.getGuild().getStringID(), SongProgress.create(songId, progress));
+
+        AsyncService.GENERIC.schedule(this, track.getTotalTrackTime() / 200, TimeUnit.MILLISECONDS);
     }
-
-    public abstract String getSongId();
-
-    public abstract double getProgress();
 
 }

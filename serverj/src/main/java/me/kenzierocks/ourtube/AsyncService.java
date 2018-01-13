@@ -26,9 +26,7 @@ package me.kenzierocks.ourtube;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import org.slf4j.Logger;
 
@@ -36,7 +34,7 @@ import com.corundumstudio.socketio.AckRequest;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -46,12 +44,9 @@ public class AsyncService {
 
     private static final Logger LOGGER = Log.get();
 
-    public static final ListeningExecutorService GENERIC = MoreExecutors.listeningDecorator(
-            new ThreadPoolExecutor(
-                    5,
+    public static final ListeningScheduledExecutorService GENERIC = MoreExecutors.listeningDecorator(
+            new ScheduledThreadPoolExecutor(
                     50,
-                    5, TimeUnit.MINUTES,
-                    new LinkedBlockingQueue<>(),
                     new ThreadFactoryBuilder().setDaemon(true).setNameFormat("generic-%d").build()));
 
     public static <T> void ackCallable(String logId, AckRequest ack, Callable<T> callable) {
