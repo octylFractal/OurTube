@@ -160,6 +160,7 @@ public class Dissy {
 
                 @Override
                 public void onSuccess(AudioInputStream pcmData) {
+                    LOGGER.info("{}: queued", songId);
                     BOT.getDispatcher().registerListener(this);
                     Track track = new Track(pcmData);
                     track.getMetadata().put("songId", songId);
