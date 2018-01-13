@@ -26,12 +26,16 @@ package me.kenzierocks.ourtube;
 
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+
 import me.kenzierocks.ourtube.songprogress.SongProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgressMap;
 import sx.blah.discord.util.audio.AudioPlayer;
 import sx.blah.discord.util.audio.AudioPlayer.Track;
 
 public class AudioUpdatesTask implements Runnable {
+    
+    private static final Logger LOGGER = Log.get();
 
     private final AudioPlayer player;
     private final Track track;
@@ -48,6 +52,8 @@ public class AudioUpdatesTask implements Runnable {
         if (player.getCurrentTrack() != this.track) {
             return;
         }
+        
+        LOGGER.info("{}: updating progress", songId);
         double progress = (100.0 * track.getCurrentTrackTime()) / (double) track.getTotalTrackTime();
         SongProgressMap.INSTANCE.setProgress(player.getGuild().getStringID(), SongProgress.create(songId, progress));
 

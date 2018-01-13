@@ -85,7 +85,9 @@ public class Dissy {
                 return;
             }
             Track track = event.getTrack();
-            AsyncService.GENERIC.submit(new AudioUpdatesTask(player, track, (String) track.getMetadata().get("songId")));
+            String songId = (String) track.getMetadata().get("songId");
+            LOGGER.info("{}: Started playing", songId);
+            AsyncService.GENERIC.submit(new AudioUpdatesTask(player, track, songId));
         }
 
         @EventSubscriber
