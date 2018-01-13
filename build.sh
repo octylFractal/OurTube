@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-pushd server
-echo 'server: npm install'; npm i
-echo 'server: build'; ./build.sh
+set -e
+pushd serverj
+echo 'server: gradle build'; ./gradlew build
 popd
 pushd client
 echo 'client: npm install'; npm i
