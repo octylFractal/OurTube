@@ -25,8 +25,10 @@
 package me.kenzierocks.ourtube;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 import java.util.concurrent.ExecutorService;
@@ -38,7 +40,6 @@ import javax.sound.sampled.AudioInputStream;
 import org.slf4j.Logger;
 
 import com.google.common.io.ByteStreams;
-import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class YoutubeStreams {
@@ -89,12 +90,12 @@ public class YoutubeStreams {
 
     private static final BitSet YTDL_OK = new BitSet();
     static {
-        YTDL_OK.set(1);
+        YTDL_OK.set(0);
     }
 
     private static final BitSet FFMPEG_OK = new BitSet();
     static {
-        FFMPEG_OK.set(1);
+        FFMPEG_OK.set(0);
         // early stream terminations -- skip song
         FFMPEG_OK.set(141);
     }
@@ -122,7 +123,9 @@ public class YoutubeStreams {
                             .start();
             startChecker("FFmpeg", ffmpeg, FFMPEG_OK);
             WRITER.submit(() -> {
-                ByteStreams.copy(source, ffmpeg.getOutputStream());
+                try (OutputStream out = ffmpeg.getOutputStream()) {
+                    ByteStreams.copy(source, out);
+                }
                 return null;
             });
             return new BufferedInputStream(ffmpeg.getInputStream(), LARGE_BUFFER);
@@ -135,9 +138,23 @@ public class YoutubeStreams {
         CHECKER.submit(() -> {
             // copy in error stream so we can dump it on error
             InputStream buffered = new BufferedInputStream(process.getErrorStream());
-            String errors = CharStreams.toString(new InputStreamReader(buffered, StandardCharsets.UTF_8));
+            ByteArrayOutputStream cap = new ByteArrayOutputStream();
+            if (Environment.INTERNAL_STREAMS_ERROR_OUTPUT) {
+                byte[] buf = new byte[8192];
+                int read;
+                while ((read = buffered.read(buf)) != -1) {
+                    System.err.write(buf, 0, read);
+                    cap.write(buf, 0, read);
+                }
+            } else {
+                ByteStreams.copy(buffered, cap);
+            }
+            String errors = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(cap.toByteArray())).toString();
             if (!okCodes.get(process.waitFor())) {
-                LOGGER.error(errors);
+                LOGGER.error("Error with " + name + " (exit code " + process.exitValue() + "): "
+                        + errors);
+            } else {
+                LOGGER.debug("{} exited cleanly.", name);
             }
             return null;
         });

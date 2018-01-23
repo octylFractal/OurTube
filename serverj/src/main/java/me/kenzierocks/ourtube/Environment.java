@@ -31,6 +31,7 @@ public class Environment {
 
 	public static final String YOUTUBE_API_KEY = System.getenv("YOUTUBE_API_KEY");
 	public static final String DISCORD_TOKEN = System.getenv("DISCORD_TOKEN");
+	public static final boolean INTERNAL_STREAMS_ERROR_OUTPUT = Boolean.valueOf(System.getenv("INTERNAL_STREAMS_ERROR_OUTPUT"));
 	static {
         checkNotNull(YOUTUBE_API_KEY, "No YOUTUBE_API_KEY provided.");
         checkNotNull(DISCORD_TOKEN, "No DISCORD_TOKEN provided.");

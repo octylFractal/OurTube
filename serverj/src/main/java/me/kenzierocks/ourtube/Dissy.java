@@ -53,7 +53,6 @@ import sx.blah.discord.util.audio.AudioPlayer;
 import sx.blah.discord.util.audio.AudioPlayer.Track;
 import sx.blah.discord.util.audio.events.AudioPlayerEvent;
 import sx.blah.discord.util.audio.events.TrackFinishEvent;
-import sx.blah.discord.util.audio.events.TrackSkipEvent;
 import sx.blah.discord.util.audio.events.TrackStartEvent;
 
 public class Dissy {
@@ -82,28 +81,27 @@ public class Dissy {
         @EventSubscriber
         public void onTrackStart(TrackStartEvent event) {
             if (event.getPlayer().getGuild().getLongID() != player.getGuild().getLongID()) {
+                LOGGER.debug("Ignoring non-matching track start event");
                 return;
             }
             Track track = event.getTrack();
             String songId = (String) track.getMetadata().get("songId");
-            LOGGER.info("{}: Started playing", songId);
+            LOGGER.debug("{}: Started playing", songId);
             AsyncService.GENERIC.submit(new AudioUpdatesTask(player, track, songId));
         }
 
         @EventSubscriber
         public void onTrackFinish(TrackFinishEvent event) {
-            onTrackEnd(event);
+            onTrackEnd(event, event.getOldTrack());
         }
 
-        @EventSubscriber
-        public void onTrackSkip(TrackSkipEvent event) {
-            onTrackEnd(event);
-        }
-
-        private void onTrackEnd(AudioPlayerEvent event) {
+        private void onTrackEnd(AudioPlayerEvent event, Track track) {
             if (event.getPlayer().getGuild().getLongID() != player.getGuild().getLongID()) {
+                LOGGER.debug("Ignoring non-matching track end event");
                 return;
             }
+            String songId = (String) track.getMetadata().get("songId");
+            LOGGER.debug("{}: Stopped playing", songId);
             BOT.getDispatcher().unregisterListener(this);
             GuildQueue.INSTANCE.popSong(guildId);
             // don't block the threads, idiot!
@@ -127,7 +125,12 @@ public class Dissy {
             waitLock.lock();
             try {
                 if (!waiting) {
+                    Track playing = player.getCurrentTrack();
                     player.skip();
+                    // force a skip event for us
+                    if (playing != null) {
+                        onTrackEnd(new AudioPlayerEvent(player), playing);
+                    }
                 }
             } finally {
                 waitLock.unlock();
@@ -156,12 +159,13 @@ public class Dissy {
         private void play(String songId) {
             FluentFuture<SongData> songData = FluentFuture.from(YoutubeAccess.INSTANCE.getVideoData(songId));
             FluentFuture<AudioInputStream> pcmData = songData.transform(YoutubeStreams::newStream, AsyncService.GENERIC);
+            Object listener = this;
             pcmData.addCallback(new FutureCallback<AudioInputStream>() {
 
                 @Override
                 public void onSuccess(AudioInputStream pcmData) {
-                    LOGGER.info("{}: queued", songId);
-                    BOT.getDispatcher().registerListener(this);
+                    LOGGER.debug("{}: queued", songId);
+                    BOT.getDispatcher().registerListener(listener);
                     Track track = new Track(pcmData);
                     track.getMetadata().put("songId", songId);
                     player.queue(track);

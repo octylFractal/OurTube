@@ -34,7 +34,7 @@ import sx.blah.discord.util.audio.AudioPlayer;
 import sx.blah.discord.util.audio.AudioPlayer.Track;
 
 public class AudioUpdatesTask implements Runnable {
-    
+
     private static final Logger LOGGER = Log.get();
 
     private final AudioPlayer player;
@@ -50,10 +50,10 @@ public class AudioUpdatesTask implements Runnable {
     @Override
     public void run() {
         if (player.getCurrentTrack() != this.track) {
+            LOGGER.debug("{}: stopped updating progress, track wasn't playing!", songId);
             return;
         }
-        
-        LOGGER.info("{}: updating progress", songId);
+
         double progress = (100.0 * track.getCurrentTrackTime()) / (double) track.getTotalTrackTime();
         SongProgressMap.INSTANCE.setProgress(player.getGuild().getStringID(), SongProgress.create(songId, progress));
 
