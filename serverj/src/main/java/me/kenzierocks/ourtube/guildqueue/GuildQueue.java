@@ -25,11 +25,13 @@
 package me.kenzierocks.ourtube.guildqueue;
 
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import me.kenzierocks.ourtube.Events;
+import me.kenzierocks.ourtube.YoutubeAccess;
 
 public enum GuildQueue {
     INSTANCE;
@@ -42,9 +44,10 @@ public enum GuildQueue {
         songQueues.computeIfAbsent(guildId, k -> new GQ()).useQueue(user);
     }
 
-    public void queueSong(String guildId, String songId) {
-        useQueue(guildId, q -> q.addLast(songId));
-        events.post(guildId, PushSong.create(songId));
+    public void queueSongs(String guildId, String songUrl) {
+        List<String> songIds = YoutubeAccess.INSTANCE.getSongIds(songUrl);
+        useQueue(guildId, q -> q.addAll(songIds));
+        songIds.forEach(songId -> events.post(guildId, PushSong.create(songId)));
     }
 
     public void popSong(String guildId) {

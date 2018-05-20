@@ -124,8 +124,8 @@ public class OurTubeApi {
         });
         server.addMultiTypeEventListener("songQueue.queue", (client, args, ack) -> {
             String guildId = args.get(0);
-            String songId = args.get(1);
-            GuildQueue.INSTANCE.queueSong(guildId, songId);
+            String songUrl = args.get(1);
+            GuildQueue.INSTANCE.queueSongs(guildId, songUrl);
         }, String.class, String.class);
         server.addDisconnectListener(disconClient -> {
             Subscription s = subscriptions.remove(disconClient.getSessionId());

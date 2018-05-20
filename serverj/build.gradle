@@ -35,16 +35,6 @@ inciseBlue {
     util.javaVersion = '1.8'
 }
 
-repositories {
-    jcenter()
-    maven {
-        url "https://jitpack.io"
-    }
-    mavenCentral()
-    maven {
-        url "https://oss.sonatype.org/content/repositories/snapshots/"
-    }
-}
 def JACKSON = '2.9.5'
 configurations.all {
     resolutionStrategy {
@@ -70,7 +60,7 @@ dependencies {
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
-    compile 'com.github.austinv11:Discord4J:2.10.1'
+    compile 'com.discord4j:Discord4J:2.10.1'
     compile "com.corundumstudio.socketio:netty-socketio:1.7.13"
     compile 'org.bytedeco.javacpp-presets:ffmpeg-platform:3.4.2-1.4.1'
     
