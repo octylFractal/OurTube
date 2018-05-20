@@ -24,26 +24,45 @@
  */
 package me.kenzierocks.ourtube;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.repackaged.com.google.common.base.Splitter;
 import com.google.api.services.youtube.YouTube;
+import com.google.api.services.youtube.YouTube.PlaylistItems;
+import com.google.api.services.youtube.model.PlaylistItem;
+import com.google.api.services.youtube.model.PlaylistItemContentDetails;
+import com.google.api.services.youtube.model.PlaylistItemListResponse;
 import com.google.api.services.youtube.model.Video;
 import com.google.api.services.youtube.model.VideoContentDetails;
 import com.google.api.services.youtube.model.VideoListResponse;
 import com.google.api.services.youtube.model.VideoSnippet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import io.netty.handler.codec.http.QueryStringDecoder;
 import me.kenzierocks.ourtube.SongData.Thumbnail;
 
 public enum YoutubeAccess {
     INSTANCE;
+
+    private static final Logger LOGGER = Log.get();
 
     private static YouTube initYoutube() {
         try {
@@ -80,6 +99,69 @@ public enum YoutubeAccess {
                     .duration(Duration.parse(content.getDuration()).toMillis())
                     .build();
         });
+    }
+
+    public List<String> getSongIds(String songUrl) {
+        URI url;
+        try {
+            url = new URI(songUrl);
+        } catch (URISyntaxException e) {
+            return ImmutableList.of();
+        }
+        if (url.getHost().endsWith("youtube.com")) {
+            QueryStringDecoder decoder = new QueryStringDecoder(url);
+            switch (url.getPath()) {
+                case "/watch":
+                    List<String> watch = decoder.parameters().get("watch");
+                    return watch == null ? ImmutableList.of() : ImmutableList.copyOf(watch);
+                case "/playlist":
+                    String list = Iterables.getFirst(decoder.parameters().get("list"), null);
+                    if (list == null) {
+                        return ImmutableList.of();
+                    }
+                    return getPlaylistSongIds(list);
+                default:
+                    return ImmutableList.of();
+            }
+        }
+        if (url.getHost().equals("youtu.be")) {
+            Iterable<String> pathParts = Splitter.on('/').omitEmptyStrings().split(url.getPath());
+            return ImmutableList.copyOf(Iterables.limit(pathParts, 1));
+        }
+        return ImmutableList.of();
+    }
+
+    private List<String> getPlaylistSongIds(String list) {
+        try {
+            return playlistStream(list)
+                    .map(PlaylistItem::getContentDetails)
+                    .filter(Objects::nonNull)
+                    .map(PlaylistItemContentDetails::getVideoId)
+                    .collect(toImmutableList());
+        } catch (Exception e) {
+            LOGGER.error("Error retrieving playlist items", e);
+            return ImmutableList.of();
+        }
+
+    }
+
+    private Stream<PlaylistItem> playlistStream(String list) throws IOException {
+        Stream<PlaylistItem> current = Stream.of();
+        String pageToken = "";
+        while (pageToken != null) {
+            PlaylistItems.List itemRequest = yt3.playlistItems().list("contentDetails")
+                    .setPlaylistId(list)
+                    .setKey(Environment.YOUTUBE_API_KEY)
+                    .setMaxResults(50L);
+            if (!pageToken.isEmpty()) {
+                itemRequest.setPageToken(pageToken);
+            }
+            PlaylistItemListResponse response = itemRequest
+                    .execute();
+            current = Stream.concat(current, response.getItems().stream());
+            pageToken = response.getNextPageToken();
+        }
+        return current;
     }
 
 }

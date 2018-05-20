@@ -53,7 +53,7 @@ export interface Api {
 
     unsubscribeSongQueue(guildId: string): void
 
-    queueSong(guildId: string, songId: string): void
+    queueSongs(guildId: string, songUrl: string): void
 
     requestYoutubeSongData(songId: string): Promise<SongData>
 
@@ -108,8 +108,8 @@ class ApiImpl implements Api {
         this.websocket.emit('songQueue.unsubscribe');
     }
 
-    queueSong(guildId: string, songId: string): void {
-        this.websocket.emit('songQueue.queue', guildId, songId);
+    queueSongs(guildId: string, songUrl: string): void {
+        this.websocket.emit('songQueue.queue', guildId, songUrl);
     }
 
     private responseProtoToPromise<T>(event: string, ...args: any[]): Promise<T> {

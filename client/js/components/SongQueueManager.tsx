@@ -2,29 +2,9 @@ import React, {FormEvent} from "react";
 import {connect} from "react-redux";
 import {InternalState, SongProgress} from "../reduxish/store";
 import {SongData} from "../reduxish/SongData";
-import {
-    Button, Card, CardImg, CardBody, CardTitle, Col, Form, FormGroup, Input, Label, Progress,
-    Row
-} from 'reactstrap';
-import parse from "url-parse";
+import {Button, Col, Form, FormGroup, Input, Label, Progress, Row} from 'reactstrap';
 import {API} from "../websocket/api";
 import {AvailableChannelSelector} from "./ChannelSelector";
-
-function extractSongId(urlStr: string) {
-    if (urlStr.startsWith('id:')) {
-        // allow raw ID insertion, if really needed...
-        return urlStr.slice('id:'.length);
-    }
-    const url = parse(urlStr, {}, true);
-    if (url.hostname === 'www.youtube.com' && url.pathname === '/watch') {
-        return url.query['v'];
-    }
-    if (url.hostname === 'youtu.be') {
-        return url.pathname.slice(1);
-    }
-    // unhandled, don't know
-    return undefined;
-}
 
 const SongAddForm = (props: { guildId: string }) => {
     const submissionHandler = (e: FormEvent<HTMLFormElement>) => {
@@ -36,12 +16,8 @@ const SongAddForm = (props: { guildId: string }) => {
             console.log('fail', url);
             return;
         }
-        const songId = extractSongId(String(url));
-        if (!songId) {
-            return;
-        }
         $input.val('');
-        API.queueSong(props.guildId, songId);
+        API.queueSongs(props.guildId, String(url));
     };
     return <Form onSubmit={submissionHandler}>
         <Row className="mx-2">
@@ -74,7 +50,8 @@ const SongQueueItem = (props: { guildId: string, song: SongData, progress: numbe
             </div>
             <div className="d-flex align-items-center justify-content-center">
                 <h5 className="commutext text-light mb-0">{props.song.name}</h5>
-                <span className="mx-3 fa-stack fa-lg play-button" aria-hidden={true} onClick={skipSong.bind(null, props.guildId)}>
+                <span className="mx-3 fa-stack fa-lg play-button" aria-hidden={true}
+                      onClick={skipSong.bind(null, props.guildId)}>
                     <i className="fa fa-circle fa-stack-2x pb-background" aria-hidden={true}/>
                     <i className="fa fa-fast-forward fa-stack-1x" aria-hidden={true}/>
                 </span>

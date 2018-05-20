@@ -1,15 +1,8 @@
 import {createStore} from "redux";
 import {annotateFunctions, createSliceDistributor, SliceMap} from "./slicing";
 import {SongData} from "./SongData";
-import {
-    DiscordChannel,
-    DiscordGuild,
-    DiscordInformation,
-    discordInformationFromLocalStorage,
-    GuildInformation
-} from "./discord";
+import {DiscordChannel, DiscordGuild, DiscordInformation, GuildInformation} from "./discord";
 import {observeStoreSlice} from "./reduxObservers";
-import {discordApiCall} from "../utils";
 import {API} from "../websocket/api";
 import {isNullOrUndefined} from "../preconditions";
 import {LSConst} from "../lsConst";
@@ -179,10 +172,27 @@ observeStoreSlice(ISTATE, state => optional(state).map(s => s.guild).map(g => g.
     });
 });
 
-// Trigger all initialization, calling subscribed functions:
-function initStore() {
-    discordInformationFromLocalStorage();
+export function discordApiCall(path: string, accessToken: string, callback: (data: any) => void) {
+    $.get({
+        url: 'https://discordapp.com/api/v6' + path,
+        headers: {
+            Authorization: 'Bearer ' + accessToken
+        }
+    }).fail((xhr, textStatus, errorThrown) => {
+        if (xhr.status === 401) {
+            // 401 Unauthorized, log the user out!
+            ISTATE.dispatch(Actions.updateInformation(undefined));
+            return;
+        }
+        if (xhr.status == 429) {
+            // rate limited!
+            const retryMillis = xhr.responseJSON['retry_after'] || 10000;
+            setTimeout(() => discordApiCall(path, accessToken, callback), retryMillis + 100);
+            return;
+        }
+        console.log(`Failed to acquire ${path}:`, textStatus, errorThrown);
+    }).done((data) => {
+        callback(data);
+    });
 }
-
-initStore();
 

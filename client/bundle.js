@@ -52,7 +52,8 @@ const inputOptions = {
         "redux",
         "react-redux",
         "reactstrap",
-        "socket.io-client"
+        "socket.io-client",
+        'crypto'
     ],
 };
 

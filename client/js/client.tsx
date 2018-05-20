@@ -10,6 +10,7 @@ import {Provider} from "react-redux";
 import {ISTATE} from "./reduxish/store";
 import queryString from "query-string";
 import {discordLogin} from "./discordLoginImport";
+import {discordInformationFromLocalStorage} from "./reduxish/discordLocalStorage";
 
 function getRoutes() {
     const routes = new Map<string, Route>();
@@ -21,6 +22,8 @@ function discordRedirect() {
     const discRed = queryString.parse(window.location.search)['discordRedirect'];
     return discRed === 'true';
 }
+
+discordInformationFromLocalStorage();
 
 $(() => {
     const navbar = createNavbar();
