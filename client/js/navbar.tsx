@@ -5,10 +5,8 @@ import {Collapse, Navbar, NavbarBrand, NavbarToggler} from "reactstrap";
 import {connect} from "react-redux";
 import GuildIcon from "./components/GuildIcon";
 import {DiscordGuild} from "./reduxish/discord";
-import {isDefined} from "./preconditions";
 import {InternalState, selectGuild} from "./reduxish/store";
-import {e} from "./utils";
-import {SimpleTooltip} from "./components/simpleTooltip";
+import {optional} from "./optional";
 
 class NavbarDatum {
     hashVal: string;
@@ -86,7 +84,7 @@ const UNKNOWN_GUILD: DiscordGuild = {
 };
 const SelectedGuildIcon = connect((ISTATE: InternalState) => {
     return {
-        guild: e(ISTATE)('guild')('instance').val || UNKNOWN_GUILD
+        guild: optional(ISTATE.guild).map(g => g.instance).orElse(UNKNOWN_GUILD)
     };
 })(NavGuildIcon);
 

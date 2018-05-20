@@ -5,7 +5,6 @@ import {FormEvent} from "react";
 import {Button, Col, Form, FormGroup, Input, Label, Row} from 'reactstrap';
 import $ from "jquery";
 import {InternalState} from "../reduxish/store";
-import {e} from "../utils";
 import {API} from "../websocket/api";
 
 interface Option {
@@ -75,7 +74,7 @@ const ChannelSelector = (props: { guildId: string, channels: DiscordChannel[], s
 };
 
 export const AvailableChannelSelector = connect((ISTATE: InternalState) => {
-    let guild = e(ISTATE)('guild').val;
+    const guild = ISTATE.guild;
     if (typeof guild === "undefined") {
         return {channels: [], guildId: ''};
     }

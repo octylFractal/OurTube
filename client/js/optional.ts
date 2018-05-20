@@ -1,7 +1,9 @@
-type Maybe<S> = S | undefined;
+import {isNullOrUndefined} from "./preconditions";
+
+type Maybe<S> = S | undefined | null;
 
 export interface Optional<T> {
-    readonly value: T
+    readonly value: T | never
 
     isPresent(): boolean
 
@@ -11,25 +13,50 @@ export interface Optional<T> {
 
     filter(filter: (from: T) => boolean): Optional<T>
 
-    orElse(other: T): T
-
-    orElseUndefined(): T | undefined
+    orElse<U>(other: U): T | U
 }
 
-class OptionalImpl<T> implements Optional<T> {
+export interface PresentOptional<T> extends Optional<T> {
+    readonly value: T
+
+    isPresent(): true
+
+    orElse<U>(other: U): T
+
+}
+
+export interface AbsentOptional<T> extends Optional<T> {
+    readonly value: never
+
+    isPresent(): false
+
+    map<S>(mapper: (from: T) => Maybe<S>): AbsentOptional<S>
+
+    flatMap<S>(mapper: (from: T) => Optional<S>): AbsentOptional<S>
+
+    filter(filter: (from: T) => boolean): AbsentOptional<T>
+
+    orElse<U>(other: U): U
+}
+
+class OptionalImpl<T> implements PresentOptional<T> {
     constructor(public value: T) {
     }
 
-    isPresent() {
+    isPresent(): true {
         return true;
     }
 
     map<S>(mapper: (from: T) => Maybe<S>) {
-        return optional(mapper(this.value));
+        const value = mapper(this.value);
+        if (isNullOrUndefined(value)) {
+            return emptyOptional<S>();
+        }
+        return optional(value);
     }
 
     flatMap<S>(mapper: (from: T) => Optional<S>) {
-        return mapper(this.value);
+        return mapper(this.value) as any;
     }
 
     filter(filter: (from: T) => boolean): Optional<T> {
@@ -39,43 +66,41 @@ class OptionalImpl<T> implements Optional<T> {
         return this;
     }
 
-    orElse(other: T): T {
+    orElse<U>(other: U): T {
         return this.value;
     }
 
-    orElseUndefined(): T {
-        return this.value;
-    }
 }
 
-const EMPTY_OPTIONAL: Optional<any> = {
-    get value() {
+const EMPTY_OPTIONAL: AbsentOptional<any> = {
+    get value(): never {
         throw Error('Empty Optional!');
     },
-    isPresent() {
+    isPresent(): false {
         return false;
     },
-    map<S>(): Optional<S> {
+    map<S>(): AbsentOptional<S> {
         return emptyOptional();
     },
-    flatMap<S>(): Optional<S> {
+    flatMap<S>(): AbsentOptional<S> {
         return emptyOptional();
     },
     filter() {
         return this;
     },
-    orElse(other: any): any {
+    orElse<U>(other: U): U {
         return other;
-    },
-    orElseUndefined(): undefined {
-        return undefined;
     }
 };
 
-export function emptyOptional(): Optional<any> {
+export function emptyOptional<T>(): AbsentOptional<T> {
     return EMPTY_OPTIONAL;
 }
 
-export function optional<T>(value: T | undefined): Optional<T> {
-    return typeof value === "undefined" ? emptyOptional() : new OptionalImpl(value);
+
+export function optional<T extends {}>(value: undefined | null): AbsentOptional<T>;
+export function optional<T extends {}>(value: T): PresentOptional<T>;
+export function optional<T extends {}>(value: T | undefined | null): Optional<T>;
+export function optional<T extends {}>(value: T | undefined | null): Optional<T> {
+    return isNullOrUndefined(value) ? emptyOptional() : new OptionalImpl(value);
 }

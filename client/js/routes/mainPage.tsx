@@ -6,7 +6,7 @@ import {isDefined} from "../preconditions";
 import {DiscordGuild} from "../reduxish/discord";
 import DiscordGuildSelect from "../components/DiscordGuildSelect";
 import SongQueueManager from "../components/SongQueueManager";
-import {e} from "../utils";
+import {optional} from "../optional";
 
 type MainPageProps = { loggedIn: boolean, guild?: DiscordGuild, guilds: DiscordGuild[] }
 const MainPageTree = ({loggedIn, guild, guilds}: MainPageProps) => {
@@ -24,7 +24,7 @@ const MainPageTree = ({loggedIn, guild, guilds}: MainPageProps) => {
 const MainPage = connect((ISTATE: InternalState) => {
     return {
         loggedIn: isDefined(ISTATE.discord),
-        guild: e(ISTATE)('guild')('instance').val,
+        guild: optional(ISTATE.guild).map(g => g.instance).orElse(undefined),
         guilds: ISTATE.discordGuilds
     }
 })(MainPageTree);

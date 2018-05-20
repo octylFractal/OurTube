@@ -12,9 +12,10 @@
       "DOM",
       "ScriptHost"
     ],
+    "jsx": "react",
+    "esModuleInterop": true,
     "allowJs": true,
     "checkJs": true,
-    "jsx": "react",
     "sourceMap": true,
     "strict": true,
     "noImplicitReturns": true,

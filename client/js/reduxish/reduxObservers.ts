@@ -1,6 +1,7 @@
 import {Store} from "redux";
+import {OTAction} from "./actionCreators";
 
-export function observeStoreSlice<STATE, SLICE>(store: Store<STATE>, selector: (state: STATE) => SLICE, onChange: (state: SLICE) => void) {
+export function observeStoreSlice<STATE, SLICE>(store: Store<STATE, OTAction<any>>, selector: (state: STATE) => SLICE, onChange: (state: SLICE) => void) {
     let currentState: SLICE | undefined = undefined;
 
     function handleChange() {

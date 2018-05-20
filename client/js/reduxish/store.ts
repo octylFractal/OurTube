@@ -2,14 +2,18 @@ import {createStore} from "redux";
 import {annotateFunctions, createSliceDistributor, SliceMap} from "./slicing";
 import {SongData} from "./SongData";
 import {
-    DiscordChannel, DiscordGuild, DiscordInformation, discordInformationFromLocalStorage,
+    DiscordChannel,
+    DiscordGuild,
+    DiscordInformation,
+    discordInformationFromLocalStorage,
     GuildInformation
 } from "./discord";
 import {observeStoreSlice} from "./reduxObservers";
-import {discordApiCall, e} from "../utils";
-import {API, Api} from "../websocket/api";
-import {isDefined, isNullOrUndefined} from "../preconditions";
+import {discordApiCall} from "../utils";
+import {API} from "../websocket/api";
+import {isNullOrUndefined} from "../preconditions";
 import {LSConst} from "../lsConst";
+import {optional} from "../optional";
 
 type SongDataCache = { [songKey: string]: SongData };
 
@@ -130,7 +134,7 @@ function setUnfilteredGuilds(guilds: DiscordGuild[]) {
     }).catch(err => console.error('Error filtering guilds', err));
 }
 
-observeStoreSlice(ISTATE, state => e(state)('discord')('accessToken').val, (accessToken: string | undefined) => {
+observeStoreSlice(ISTATE, state => optional(state).map(s => s.discord).map(d => d.accessToken).orElse(undefined), (accessToken: string | undefined) => {
     if (!accessToken) {
         return;
     }
@@ -145,7 +149,7 @@ observeStoreSlice(ISTATE, state => e(state)('discord')('accessToken').val, (acce
     });
 });
 // Initialize WS connection when guild selected
-observeStoreSlice(ISTATE, state => e(state)('guild')('instance').val, (guild) => {
+observeStoreSlice(ISTATE, state => optional(state).map(s => s.guild).map(g => g.instance).orElse(undefined), (guild) => {
     if (!guild) {
         API.unsubscribeSongQueue();
         API.unsubscribeDiscord();
