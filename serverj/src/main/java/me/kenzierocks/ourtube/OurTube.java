@@ -30,7 +30,7 @@ public class OurTube {
         // trigger ws
         AsyncService.GENERIC.submit(new SocketIoTask());
         // trigger bot
-        Dissy.BOT.online();
+        Dissy.BOT.login();
         // sit and wait to die
         Thread.sleep(Long.MAX_VALUE);
     }
