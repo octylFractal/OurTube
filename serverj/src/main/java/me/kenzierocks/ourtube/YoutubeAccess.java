@@ -108,6 +108,14 @@ public enum YoutubeAccess {
     }
 
     public List<String> getSongIds(String songUrl) {
+        List<String> ids = getSongIdsInternal(songUrl);
+        if (ids.isEmpty()) {
+            LOGGER.warn("No IDs discovered for '{}'!", songUrl);
+        }
+        return ids;
+    }
+
+    private List<String> getSongIdsInternal(String songUrl) {
         URI url;
         try {
             url = new URI(songUrl);
