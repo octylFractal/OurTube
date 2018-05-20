@@ -85,8 +85,14 @@ public enum YoutubeAccess {
                     .setId(songId)
                     .setKey(Environment.YOUTUBE_API_KEY)
                     .execute();
-            if (ytResponse.isEmpty()) {
-                throw new IllegalArgumentException("No items, invalid ID?");
+            if (ytResponse.getItems().isEmpty()) {
+                LOGGER.warn("Missing video info for item '{}'", songId);
+                return SongData.builder()
+                        .id(songId)
+                        .name("Warning: Unknown - " + songId)
+                        .thumbnail(Thumbnail.of(320, 320, "https://i.imgur.com/3FIBbnxm.png"))
+                        .duration(Integer.MAX_VALUE)
+                        .build();
             }
             Video video = ytResponse.getItems().get(0);
             VideoContentDetails content = video.getContentDetails();
