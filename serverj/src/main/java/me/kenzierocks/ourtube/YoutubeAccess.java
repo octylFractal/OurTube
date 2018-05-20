@@ -126,7 +126,7 @@ public enum YoutubeAccess {
             QueryStringDecoder decoder = new QueryStringDecoder(url);
             switch (url.getPath()) {
                 case "/watch":
-                    List<String> watch = decoder.parameters().get("watch");
+                    List<String> watch = decoder.parameters().get("v");
                     return watch == null ? ImmutableList.of() : ImmutableList.copyOf(watch);
                 case "/playlist":
                     String list = Iterables.getFirst(decoder.parameters().get("list"), null);
