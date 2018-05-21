@@ -9,6 +9,7 @@
 	</appender>
 
 	<logger name="com.corundumstudio.socketio" level="INFO" />
+	<logger name="io.netty.handler.codec.http.websocketx" level="INFO" />
 
 	<root level="DEBUG">
 		<appender-ref ref="STDOUT" />
