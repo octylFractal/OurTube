@@ -99,6 +99,8 @@ public class OurTubeApi {
 
     private void songQueueUnsubscribe(Subscription subscription) {
         GuildQueue.INSTANCE.events.unsubscribe(subscription.guildId, subscription);
+        SongProgressMap.INSTANCE.events.unsubscribe(subscription.guildId, subscription);
+        GuildVolume.INSTANCE.events.unsubscribe(subscription.guildId, subscription);
     }
 
     private void setupSongQueue() {
@@ -123,6 +125,7 @@ public class OurTubeApi {
                 subs.onNewProgress(NewProgress.create(progress));
             }
             subs.onSetVolume(SetVolume.create(GuildVolume.INSTANCE.getVolume(guildId)));
+            GuildVolume.INSTANCE.events.subscribe(guildId, subs);
         });
         server.addEventListener("songQueue.unsubscribe", Void.class, (client, nothing, ack) -> {
             UUID sessId = client.getSessionId();

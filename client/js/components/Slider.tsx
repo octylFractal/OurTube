@@ -2,15 +2,14 @@ import React from "react";
 import {optional} from "../optional";
 
 export interface SliderProps {
+    value: number,
     min?: number,
     max?: number,
-    initialValue?: number,
-    onValueUpdate?: (value: number) => any
+    onValueSet?: (value: number) => any
 }
 
 type SliderState = {
-    value: number | undefined,
-    dragging: boolean
+    dragValue: number | undefined
 };
 
 export class Slider extends React.Component<SliderProps, SliderState> {
@@ -25,8 +24,7 @@ export class Slider extends React.Component<SliderProps, SliderState> {
         this.bar = null;
 
         this.state = {
-            value: undefined,
-            dragging: false
+            dragValue: undefined
         };
     }
 
@@ -39,9 +37,12 @@ export class Slider extends React.Component<SliderProps, SliderState> {
     }
 
     get value() {
-        return optional(this.state.value)
-            .orMaybe(this.props.initialValue)
-            .orElse(this.min);
+        const dv = this.state.dragValue;
+        return typeof dv !== "undefined" ? dv : this.props.value;
+    }
+
+    get dragging() {
+        return typeof this.state.dragValue !== "undefined";
     }
 
     private handleMouseMove(e: MouseEvent) {
@@ -60,7 +61,7 @@ export class Slider extends React.Component<SliderProps, SliderState> {
         const percent = dx / rect.width;
         const value = Math.round(this.min + (this.max - this.min) * percent);
 
-        this.setState(state => ({...state, value: value}));
+        this.setState(state => ({...state, dragValue: value}));
     }
 
     private handleMouseUp() {
@@ -68,17 +69,20 @@ export class Slider extends React.Component<SliderProps, SliderState> {
     }
 
     private updateDragging(dragging: boolean) {
+        let dragValue: number | undefined;
         if (dragging) {
             document.addEventListener('mousemove', this.boundMoveHandler);
             document.addEventListener('mouseup', this.boundUpHandler);
+            dragValue = this.value;
         } else {
             document.removeEventListener('mousemove', this.boundMoveHandler);
             document.removeEventListener('mouseup', this.boundUpHandler);
 
-            const onValueUpdate = this.props.onValueUpdate;
-            onValueUpdate && onValueUpdate(this.value);
+            const set = this.props.onValueSet;
+            set && set(this.value);
+            dragValue = undefined;
         }
-        this.setState(state => ({...state, dragging: dragging}));
+        this.setState(state => ({...state, dragValue: dragValue}));
     }
 
     render() {
