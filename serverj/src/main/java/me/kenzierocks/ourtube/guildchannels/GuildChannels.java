@@ -26,6 +26,7 @@ package me.kenzierocks.ourtube.guildchannels;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
@@ -35,18 +36,20 @@ import me.kenzierocks.ourtube.Events;
 public enum GuildChannels {
     INSTANCE;
 
-    public final Events events = new Events("SongProgress");
+    public final Events events = new Events("GuildChannels");
 
-    private final Map<String, String> progressMap = new ConcurrentHashMap<>();
+    private final Map<String, Optional<String>> channelsMap = new ConcurrentHashMap<>();
 
     @Nullable
     public String getChannel(String guildId) {
-        return progressMap.get(guildId);
+        Optional<String> val = channelsMap.get(guildId);
+        return val == null ? null : val.orElse(null);
     }
 
-    public void setChannel(String guildId, String channelId) {
-        String old = progressMap.put(guildId, channelId);
-        if (!Objects.equals(channelId, old)) {
+    public void setChannel(String guildId, @Nullable String channelId) {
+        Optional<String> newId = Optional.ofNullable(channelId);
+        Optional<String> old = channelsMap.put(guildId, newId);
+        if (!Objects.equals(newId, old)) {
             events.post(guildId, NewChannel.create(channelId));
         }
     }

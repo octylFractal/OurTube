@@ -24,15 +24,18 @@
  */
 package me.kenzierocks.ourtube.guildqueue;
 
-public class PopSong {
+import com.google.auto.value.AutoValue;
 
-	private static final PopSong INSTANCE = new PopSong();
+@AutoValue
+public abstract class PopSong {
 
-	public static PopSong create() {
-		return INSTANCE;
-	}
+    public static PopSong create(String songId) {
+        return new AutoValue_PopSong(songId);
+    }
 
-	private PopSong() {
-	}
+    PopSong() {
+    }
+
+    public abstract String getSongId();
 
 }

@@ -22,17 +22,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.guildvol;
 
-public class OurTube {
+import com.google.auto.value.AutoValue;
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        AsyncService.GENERIC.submit(new SocketIoTask());
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        // sit and wait to die
-        Thread.sleep(Long.MAX_VALUE);
+@AutoValue
+public abstract class SetVolume {
+
+    public static SetVolume create(float volume) {
+        return new AutoValue_SetVolume(volume);
     }
+
+    SetVolume() {
+    }
+
+    public abstract float getVolume();
 
 }

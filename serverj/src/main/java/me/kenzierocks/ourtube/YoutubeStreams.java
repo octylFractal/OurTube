@@ -104,6 +104,7 @@ public class YoutubeStreams {
         try {
             Process ytdl = new ProcessBuilder("ytdl", url, "--filter", "audio")
                     .start();
+            ytdl.getOutputStream().close();
             startChecker("ytdl", ytdl, YTDL_OK);
             // no buffering for this stream :)
             // it gets buffered in callFfmpeg
@@ -119,7 +120,7 @@ public class YoutubeStreams {
     private static InputStream callFfmpeg(InputStream source) {
         try {
             Process ffmpeg = new ProcessBuilder("ffmpeg", "-i", "pipe:0",
-                    "-filter:a", "volume=0.3", "-ar", "48000", "-ac", "2", "-acodec", "pcm_s16be", "-f", "s16be", "pipe:1")
+                    "-ar", "48000", "-ac", "2", "-acodec", "pcm_s16be", "-f", "s16be", "pipe:1")
                             .start();
             startChecker("FFmpeg", ffmpeg, FFMPEG_OK);
             WRITER.submit(() -> {

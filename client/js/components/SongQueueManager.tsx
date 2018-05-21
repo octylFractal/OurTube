@@ -1,10 +1,11 @@
 import React, {FormEvent} from "react";
 import {connect} from "react-redux";
-import {InternalState, SongProgress} from "../reduxish/store";
+import {InternalState, ISTATE, SongProgress} from "../reduxish/store";
 import {SongData} from "../reduxish/SongData";
-import {Button, Col, Form, FormGroup, Input, Label, Progress, Row} from 'reactstrap';
+import {Button, ButtonGroup, Col, Form, FormGroup, Input, Label, Progress, Row} from 'reactstrap';
 import {API} from "../websocket/api";
 import {AvailableChannelSelector} from "./ChannelSelector";
+import {Slider} from "./Slider";
 
 const SongAddForm = (props: { guildId: string }) => {
     const submissionHandler = (e: FormEvent<HTMLFormElement>) => {
@@ -20,7 +21,7 @@ const SongAddForm = (props: { guildId: string }) => {
         API.queueSongs(props.guildId, String(url));
     };
     return <Form onSubmit={submissionHandler}>
-        <Row className="mx-2">
+        <Row className="mx-3">
             <Col md={10}>
                 <FormGroup>
                     <Label for="songAddField" hidden>Youtube URL</Label>
@@ -34,10 +35,6 @@ const SongAddForm = (props: { guildId: string }) => {
     </Form>;
 };
 
-function skipSong(guildId: string) {
-    API.skipSong(guildId);
-}
-
 const SongQueueItem = (props: { guildId: string, song: SongData, progress: number }) => {
     let thumbnail = props.song.thumbnail;
     return <li className="list-group-item">
@@ -48,13 +45,14 @@ const SongQueueItem = (props: { guildId: string, song: SongData, progress: numbe
 
                 <Progress animated color="warning" className="rounded-0 bg-light" value={props.progress} max={1000}/>
             </div>
-            <div className="d-flex align-items-center justify-content-center">
-                <h5 className="commutext text-light mb-0">{props.song.name}</h5>
-                <span className="mx-3 fa-stack fa-lg play-button" aria-hidden={true}
-                      onClick={skipSong.bind(null, props.guildId)}>
-                    <i className="fa fa-circle fa-stack-2x pb-background" aria-hidden={true}/>
-                    <i className="fa fa-fast-forward fa-stack-1x" aria-hidden={true}/>
-                </span>
+            <div className="d-flex align-items-center justify-content-between w-100 px-3">
+                <p className="commutext text-light mb-0 mr-3"
+                   style={{
+                       overflowX: 'hidden',
+                       whiteSpace: 'nowrap',
+                       textOverflow: 'ellipsis'
+                   }}
+                >{props.song.name}</p>
             </div>
         </div>
     </li>;
@@ -92,11 +90,44 @@ const SongQueueList = connect((ISTATE: InternalState) => {
     };
 })(SongQueueListDisplay);
 
+const VolumeSlider = connect((ISTATE: InternalState) => {
+    return {
+        initialValue: ISTATE.volume
+    };
+})(Slider);
+
+function SongControls(props: { guildId: string }) {
+    function skipCurrentSong() {
+        const queue = ISTATE.getState().songQueue;
+        if (!queue || queue.length === 0) {
+            return;
+        }
+        API.skipSong(props.guildId, queue[0]);
+    }
+
+    return <ButtonGroup>
+        <Button color='info' title="Remove from list"
+                onClick={skipCurrentSong}>
+            <i className="fa fa-fast-forward"/>
+        </Button>
+        <div className="btn bg-info text-light" style={{
+            width: '10vw',
+            cursor: 'default'
+        }}>
+            <VolumeSlider onValueUpdate={value => {
+                API.setVolume(props.guildId, value);
+            }}/>
+        </div>
+    </ButtonGroup>;
+}
 
 export default (props: { guildId: string }) => {
     return <Row>
         <Col md={5} className="m-auto">
-            <AvailableChannelSelector/>
+            <div className="d-flex p-3 justify-content-between">
+                <AvailableChannelSelector/>
+                <SongControls guildId={props.guildId}/>
+            </div>
             <SongAddForm guildId={props.guildId}/>
             <SongQueueList/>
         </Col>

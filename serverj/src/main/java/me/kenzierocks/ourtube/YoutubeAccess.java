@@ -120,6 +120,7 @@ public enum YoutubeAccess {
         try {
             url = new URI(songUrl);
         } catch (URISyntaxException e) {
+            LOGGER.debug("Bad song URL provided", e);
             return ImmutableList.of();
         }
         if (url.getHost().endsWith("youtube.com")) {
@@ -127,20 +128,25 @@ public enum YoutubeAccess {
             switch (url.getPath()) {
                 case "/watch":
                     List<String> watch = decoder.parameters().get("v");
+                    LOGGER.debug("/watch IDs: {}", watch);
                     return watch == null ? ImmutableList.of() : ImmutableList.copyOf(watch);
                 case "/playlist":
                     String list = Iterables.getFirst(decoder.parameters().get("list"), null);
                     if (list == null) {
                         return ImmutableList.of();
                     }
-                    return getPlaylistSongIds(list);
+                    List<String> playlistSongIds = getPlaylistSongIds(list);
+                    LOGGER.debug("/playlist IDs: {}", playlistSongIds);
+                    return playlistSongIds;
                 default:
                     return ImmutableList.of();
             }
         }
         if (url.getHost().equals("youtu.be")) {
             Iterable<String> pathParts = Splitter.on('/').omitEmptyStrings().split(url.getPath());
-            return ImmutableList.copyOf(Iterables.limit(pathParts, 1));
+            ImmutableList<String> beIds = ImmutableList.copyOf(Iterables.limit(pathParts, 1));
+            LOGGER.debug("youtu.be IDs: {}", beIds);
+            return beIds;
         }
         return ImmutableList.of();
     }

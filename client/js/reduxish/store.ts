@@ -21,6 +21,7 @@ export interface InternalState {
     discordGuilds: DiscordGuild[]
     songQueue: Array<string>
     songProgress?: SongProgress
+    volume?: number
     songDataCache: SongDataCache
 }
 
@@ -59,10 +60,7 @@ export const Actions = annotateFunctions({
     selectGuild: (prevState: GuildInformation | undefined, payload: DiscordGuild): GuildInformation => {
         return {channels: [], ...prevState, instance: payload};
     },
-    selectChannel: (prevState: GuildInformation, payload: string): GuildInformation => {
-        if (isNullOrUndefined(prevState)) {
-            throw new Error('no, this cannot be!');
-        }
+    selectChannel: (prevState: GuildInformation, payload: string | undefined): GuildInformation => {
         return {...prevState, selectedChannel: payload};
     },
     setGuilds: (prevState, payload: DiscordGuild[]) => {
@@ -74,10 +72,13 @@ export const Actions = annotateFunctions({
     queueSong: (prevState: Array<string>, payload: string) => {
         return prevState.concat(payload);
     },
-    popSong: (prevState: Array<string>) => {
-        return prevState.slice(1);
+    popSong: (prevState: Array<string>, payload: string) => {
+        return prevState.filter(s => s !== payload);
     },
     updateProgress: (prevState: SongProgress, payload: SongProgress): SongProgress => {
+        return payload;
+    },
+    setVolume: (prevState: number | undefined, payload: number | undefined): number | undefined => {
         return payload;
     },
     cacheSongData: (prevState: SongDataCache, payload: { key: string, value: SongData }) => {
@@ -103,6 +104,9 @@ const slices: SliceMap<InternalState> = {
     ],
     songProgress: [
         Actions.updateProgress
+    ],
+    volume: [
+        Actions.setVolume
     ],
     songDataCache: [
         Actions.cacheSongData
@@ -158,11 +162,15 @@ observeStoreSlice(ISTATE, state => optional(state).map(s => s.guild).map(g => g.
                 .catch(err => console.error('error getting data for', queueEvent, err));
             ISTATE.dispatch(Actions.queueSong(queueEvent.youtubeId));
         },
-        popped() {
-            ISTATE.dispatch(Actions.popSong(undefined));
+        popped(event) {
+            const song = event.songId;
+            ISTATE.dispatch(Actions.popSong(song));
         },
         progress(event) {
             ISTATE.dispatch(Actions.updateProgress(event));
+        },
+        volume(event) {
+            ISTATE.dispatch(Actions.setVolume(event.volume));
         }
     });
     API.subscribeDiscord(guild.id, {

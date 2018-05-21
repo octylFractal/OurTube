@@ -13,7 +13,9 @@ export interface SongQueuedCallback {
     (event: SongQueuedEvent): void
 }
 
-export type SongPoppedEvent = {}
+export type SongPoppedEvent = {
+    songId: string
+}
 
 export interface SongPoppedCallback {
     (event: SongPoppedEvent): void
@@ -28,12 +30,20 @@ export interface SongProgressCallback {
     (event: SongProgressEvent): void
 }
 
+export type SongVolumeEvent = {
+    volume: number
+}
+
+export interface SongVolumeCallback {
+    (event: SongVolumeEvent): void
+}
+
 export type SongQueueCallbacks = {
     queued: SongQueuedCallback,
     popped: SongPoppedCallback,
-    progress: SongProgressCallback
+    progress: SongProgressCallback,
+    volume: SongVolumeCallback
 }
-
 
 export type ChannelSelectedEvent = {
     channelId: string | undefined
@@ -67,7 +77,9 @@ export interface Api {
 
     selectChannel(guildId: string, channelId: string): void
 
-    skipSong(guildId: string): void
+    skipSong(guildId: string, songId: string): void
+
+    setVolume(guildId: string, volume: number): void
 
     close(): void
 }
@@ -98,6 +110,7 @@ class ApiImpl implements Api {
         this.websocket.on('songQueue.queued', callbacks.queued);
         this.websocket.on('songQueue.popped', callbacks.popped);
         this.websocket.on('songQueue.progress', callbacks.progress);
+        this.websocket.on('songQueue.volume', callbacks.volume);
         this.websocket.emit('songQueue.subscribe', guildId);
     }
 
@@ -146,12 +159,16 @@ class ApiImpl implements Api {
         this.websocket.emit('dis.unsubscribe');
     }
 
-    selectChannel(guildId: string, channelId: string): void {
+    selectChannel(guildId: string, channelId: string | undefined | null): void {
         this.websocket.emit('dis.selectChannel', guildId, channelId);
     }
 
-    skipSong(guildId: string): void {
-        this.websocket.emit('event.skipSong', guildId);
+    skipSong(guildId: string, songId: string): void {
+        this.websocket.emit('event.skipSong', guildId, songId);
+    }
+
+    setVolume(guildId: string, volume: number): void {
+        this.websocket.emit('songQueue.setVolume', guildId, volume);
     }
 
     close(): void {

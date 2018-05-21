@@ -14,6 +14,8 @@ export interface Optional<T> {
     filter(filter: (from: T) => boolean): Optional<T>
 
     orElse<U>(other: U): T | U
+
+    orMaybe<U>(other: U | null | undefined): Optional<T | U>
 }
 
 export interface PresentOptional<T> extends Optional<T> {
@@ -22,6 +24,8 @@ export interface PresentOptional<T> extends Optional<T> {
     isPresent(): true
 
     orElse<U>(other: U): T
+
+    orMaybe<U>(other: U | null | undefined): PresentOptional<T>
 
 }
 
@@ -37,6 +41,8 @@ export interface AbsentOptional<T> extends Optional<T> {
     filter(filter: (from: T) => boolean): AbsentOptional<T>
 
     orElse<U>(other: U): U
+
+    orMaybe<U>(other: U | null | undefined): Optional<U>
 }
 
 class OptionalImpl<T> implements PresentOptional<T> {
@@ -70,6 +76,10 @@ class OptionalImpl<T> implements PresentOptional<T> {
         return this.value;
     }
 
+    orMaybe<U>(other: U | undefined | null): PresentOptional<T> {
+        return this;
+    }
+
 }
 
 const EMPTY_OPTIONAL: AbsentOptional<any> = {
@@ -90,6 +100,9 @@ const EMPTY_OPTIONAL: AbsentOptional<any> = {
     },
     orElse<U>(other: U): U {
         return other;
+    },
+    orMaybe<U>(other: U | undefined | null): Optional<U> {
+        return optional(other);
     }
 };
 

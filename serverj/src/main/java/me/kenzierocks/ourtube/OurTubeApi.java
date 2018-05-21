@@ -42,6 +42,8 @@ import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
 import me.kenzierocks.ourtube.guildqueue.PopSong;
 import me.kenzierocks.ourtube.guildqueue.PushSong;
+import me.kenzierocks.ourtube.guildvol.GuildVolume;
+import me.kenzierocks.ourtube.guildvol.SetVolume;
 import me.kenzierocks.ourtube.response.Response;
 import me.kenzierocks.ourtube.songprogress.NewProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgress;
@@ -88,6 +90,11 @@ public class OurTubeApi {
             client.sendEvent("songQueue.progress", progress.getProgress());
         }
 
+        @Subscribe
+        public void onSetVolume(SetVolume volume) {
+            client.sendEvent("songQueue.volume", volume);
+        }
+
     }
 
     private void songQueueUnsubscribe(Subscription subscription) {
@@ -115,6 +122,7 @@ public class OurTubeApi {
             if (progress != null) {
                 subs.onNewProgress(NewProgress.create(progress));
             }
+            subs.onSetVolume(SetVolume.create(GuildVolume.INSTANCE.getVolume(guildId)));
         });
         server.addEventListener("songQueue.unsubscribe", Void.class, (client, nothing, ack) -> {
             UUID sessId = client.getSessionId();
@@ -127,6 +135,15 @@ public class OurTubeApi {
             String songUrl = args.get(1);
             GuildQueue.INSTANCE.queueSongs(guildId, songUrl);
         }, String.class, String.class);
+        server.addMultiTypeEventListener("songQueue.setVolume", (client, args, ack) -> {
+            String guildId = args.get(0);
+            Float volume = args.get(1);
+            if (volume == null) {
+                return;
+            }
+            GuildVolume.INSTANCE.setVolume(guildId, volume);
+        }, String.class, Float.class);
+        
         server.addDisconnectListener(disconClient -> {
             Subscription s = subscriptions.remove(disconClient.getSessionId());
             if (s != null) {
@@ -209,9 +226,8 @@ public class OurTubeApi {
             DissySub sub = new DissySub(client, guildId);
 
             String channel = GuildChannels.INSTANCE.getChannel(guildId);
-            if (channel != null) {
-                sub.onNewChannel(NewChannel.create(channel));
-            }
+            sub.onNewChannel(NewChannel.create(channel));
+            
             GuildChannels.INSTANCE.events.subscribe(guildId, sub);
 
             subscriptions.put(client.getSessionId(), sub);
@@ -232,9 +248,14 @@ public class OurTubeApi {
     }
 
     private void setupEvents() {
-        server.addEventListener("event.skipSong", String.class, (client, guildId, ack) -> {
-            Dissy.events.post(guildId, SkipSong.create());
-        });
+        server.addMultiTypeEventListener("event.skipSong", (client, args, ack) -> {
+            String guildId = args.get(0);
+            String songId = args.get(1);
+            if (songId == null) {
+                return;
+            }
+            Dissy.events.post(guildId, SkipSong.create(songId));
+        }, String.class, String.class);
     }
 
 }

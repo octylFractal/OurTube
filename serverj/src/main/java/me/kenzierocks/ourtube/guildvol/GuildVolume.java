@@ -22,17 +22,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.guildvol;
 
-public class OurTube {
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        AsyncService.GENERIC.submit(new SocketIoTask());
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        // sit and wait to die
-        Thread.sleep(Long.MAX_VALUE);
+import me.kenzierocks.ourtube.Events;
+
+public enum GuildVolume {
+    INSTANCE;
+
+    public static final float DEFAULT_VOLUME = 30f;
+
+    public final Events events = new Events("GuildVolume");
+
+    private final Map<String, Float> volumeMap = new ConcurrentHashMap<>();
+
+    public float getVolume(String guildId) {
+        Float volume = volumeMap.get(guildId);
+        return volume == null ? DEFAULT_VOLUME : volume;
+    }
+
+    public void setVolume(String guildId, float volume) {
+        Float old = volumeMap.put(guildId, volume);
+        if (!Objects.equals(volume, old)) {
+            events.post(guildId, SetVolume.create(volume));
+        }
     }
 
 }

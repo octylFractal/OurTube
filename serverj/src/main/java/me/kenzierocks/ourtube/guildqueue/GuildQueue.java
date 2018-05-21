@@ -24,7 +24,7 @@
  */
 package me.kenzierocks.ourtube.guildqueue;
 
-import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +40,7 @@ public enum GuildQueue {
 
     private final Map<String, GQ> songQueues = new ConcurrentHashMap<>();
 
-    public void useQueue(String guildId, Consumer<Deque<String>> user) {
+    public void useQueue(String guildId, Consumer<? super LinkedList<String>> user) {
         songQueues.computeIfAbsent(guildId, k -> new GQ()).useQueue(user);
     }
 
@@ -50,13 +50,17 @@ public enum GuildQueue {
         songIds.forEach(songId -> events.post(guildId, PushSong.create(songId)));
     }
 
-    public void popSong(String guildId) {
-        useQueue(guildId, q -> {
+    public void popSong(String guildId, String songId) {
+        useQueue(guildId, (LinkedList<String> q) -> {
             if (q.isEmpty()) {
                 return;
             }
-            q.removeFirst();
-            events.post(guildId, PopSong.create());
+            int index = q.indexOf(songId);
+            if (index < 0) {
+                return;
+            }
+            q.remove(index);
+            events.post(guildId, PopSong.create(songId));
         });
     }
 

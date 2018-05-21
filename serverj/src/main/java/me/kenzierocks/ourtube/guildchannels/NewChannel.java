@@ -24,18 +24,21 @@
  */
 package me.kenzierocks.ourtube.guildchannels;
 
+import javax.annotation.Nullable;
+
 import com.google.auto.value.AutoValue;
 
 @AutoValue
 public abstract class NewChannel {
 
-    public static NewChannel create(String channelId) {
+    public static NewChannel create(@Nullable String channelId) {
         return new AutoValue_NewChannel(channelId);
     }
 
     NewChannel() {
     }
 
+    @Nullable
     public abstract String getChannelId();
 
 }

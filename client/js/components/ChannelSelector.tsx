@@ -56,15 +56,19 @@ const ChannelSelector = (props: { guildId: string, channels: DiscordChannel[], s
         e.preventDefault();
         const $form = $(e.currentTarget);
         const $input = $form.find('#channelSelectField');
-        const value = $input.val();
-        if (value && value !== props.selectedChannel) {
-            API.selectChannel(props.guildId, value as string);
+        let value = $input.val();
+        if (typeof value === "object" || typeof value === "number") {
+            value = value.toString();
         }
+        if (value === "") {
+            value = undefined;
+        }
+        API.selectChannel(props.guildId, value);
     };
     const options = [{value: '', name: 'None'}].concat(
         props.channels.map(ch => ({value: ch.id, name: ch.name}))
     );
-    return <Form onSubmit={submissionHandler} inline className="justify-content-center my-3">
+    return <Form onSubmit={submissionHandler} inline className="justify-content-center">
         <FormGroup>
             <Label for="channelSelectField" className="mx-2">Voice Channel</Label>
             <CSSelect id="channelSelectField" options={options} defaultValue={props.selectedChannel}/>

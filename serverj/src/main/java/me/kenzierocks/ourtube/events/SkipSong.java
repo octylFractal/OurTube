@@ -24,15 +24,18 @@
  */
 package me.kenzierocks.ourtube.events;
 
-public class SkipSong {
+import com.google.auto.value.AutoValue;
 
-	private static final SkipSong INSTANCE = new SkipSong();
+@AutoValue
+public abstract class SkipSong {
 
-	public static SkipSong create() {
-		return INSTANCE;
-	}
+    public static SkipSong create(String songId) {
+        return new AutoValue_SkipSong(songId);
+    }
 
-	private SkipSong() {
-	}
+    SkipSong() {
+    }
+
+    public abstract String getSongId();
 
 }

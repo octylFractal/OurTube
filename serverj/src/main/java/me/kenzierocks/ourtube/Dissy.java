@@ -40,11 +40,14 @@ import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
 import me.kenzierocks.ourtube.guildqueue.PushSong;
+import me.kenzierocks.ourtube.guildvol.GuildVolume;
+import me.kenzierocks.ourtube.guildvol.SetVolume;
 import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.events.EventSubscriber;
 import sx.blah.discord.api.events.IListener;
 import sx.blah.discord.handle.impl.events.guild.GuildCreateEvent;
+import sx.blah.discord.handle.impl.events.guild.channel.message.MessageEvent;
 import sx.blah.discord.handle.impl.events.guild.voice.user.UserVoiceChannelJoinEvent;
 import sx.blah.discord.handle.impl.events.guild.voice.user.UserVoiceChannelLeaveEvent;
 import sx.blah.discord.handle.obj.IGuild;
@@ -62,6 +65,19 @@ public class Dissy {
             .registerListener(guildSubscriber())
             .login();
 
+    static {
+        BOT.getDispatcher().registerListener(new Object() {
+
+            @EventSubscriber
+            public void onMessage(MessageEvent event) {
+                if (!event.getChannel().isPrivate() || event.getAuthor().getLongID() == BOT.getOurUser().getLongID()) {
+                    return;
+                }
+                event.getChannel().sendMessage("no u");
+            }
+        });
+    }
+
     public static final Events events = new Events("dissy");
 
     private static final class OurTubePipe {
@@ -76,6 +92,13 @@ public class Dissy {
         public OurTubePipe(String guildId, AudioPlayer player) {
             this.guildId = guildId;
             this.player = player;
+            GuildVolume.INSTANCE.events.subscribe(guildId, this);
+            player.setVolume(GuildVolume.INSTANCE.getVolume(guildId) / 100f);
+        }
+
+        @Subscribe
+        public void onSetVolume(SetVolume volume) {
+            player.setVolume(volume.getVolume() / 100f);
         }
 
         @EventSubscriber
@@ -103,7 +126,7 @@ public class Dissy {
             String songId = (String) track.getMetadata().get("songId");
             LOGGER.debug("{}: Stopped playing", songId);
             BOT.getDispatcher().unregisterListener(this);
-            GuildQueue.INSTANCE.popSong(guildId);
+            GuildQueue.INSTANCE.popSong(guildId, songId);
             // don't block the threads, idiot!
             AsyncService.GENERIC.execute(() -> playNext());
         }
@@ -112,6 +135,7 @@ public class Dissy {
         public void onPushSong(PushSong event) {
             waitLock.lock();
             try {
+                LOGGER.debug("Push song received, unsubscribing and playing...");
                 GuildQueue.INSTANCE.events.unsubscribe(guildId, this);
                 playNext();
                 waiting = false;
@@ -125,7 +149,14 @@ public class Dissy {
             waitLock.lock();
             try {
                 if (!waiting) {
+                    LOGGER.debug("Skip song received");
                     Track playing = player.getCurrentTrack();
+                    if (playing != null) {
+                        if (!event.getSongId().equals(playing.getMetadata().get("songId"))) {
+                            // no plz
+                            return;
+                        }
+                    }
                     player.skip();
                     // force a skip event for us
                     if (playing != null) {
@@ -145,9 +176,11 @@ public class Dissy {
             try {
                 GuildQueue.INSTANCE.useQueue(guildId, queue -> {
                     if (queue.isEmpty()) {
+                        LOGGER.debug("Tried to play, but no songs!");
                         waiting = true;
                         GuildQueue.INSTANCE.events.subscribe(guildId, this);
                     } else {
+                        LOGGER.debug("Playing first in queue.");
                         play(queue.peekFirst());
                     }
                 });
@@ -178,6 +211,11 @@ public class Dissy {
             }, AsyncService.GENERIC);
         }
 
+        @Override
+        protected void finalize() throws Throwable {
+            GuildVolume.INSTANCE.events.unsubscribe(guildId, this);
+        }
+
     }
 
     private static final class Subscriber {
@@ -190,7 +228,16 @@ public class Dissy {
 
         @Subscribe
         public void onNewChannel(NewChannel event) {
-            IVoiceChannel channel = guild.getVoiceChannelByID(Long.parseUnsignedLong(event.getChannelId()));
+            String channelId = event.getChannelId();
+            if (channelId == null) {
+                // leave the current channel
+                IVoiceChannel connectedVoiceChannel = guild.getConnectedVoiceChannel();
+                if (connectedVoiceChannel != null) {
+                    connectedVoiceChannel.leave();
+                }
+                return;
+            }
+            IVoiceChannel channel = guild.getVoiceChannelByID(Long.parseUnsignedLong(channelId));
             if (channel == null) {
                 return;
             }
@@ -235,6 +282,10 @@ public class Dissy {
     private static IListener<GuildCreateEvent> guildSubscriber() {
         return event -> {
             String guildId = event.getGuild().getStringID();
+            IVoiceChannel connected = event.getGuild().getConnectedVoiceChannel();
+            if (connected != null) {
+                connected.leave();
+            }
             GuildChannels.INSTANCE.events.subscribe(guildId, new Subscriber(event.getGuild()));
         };
     }
