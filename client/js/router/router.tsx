@@ -12,7 +12,10 @@ export interface Route {
 const NULL_ROUTE: Route = {
     render: () => <div>
         <p>404, not found!</p>
-        <a href="#" className="btn btn-primary">Eh? You went <em>where?</em> You did <strong>what?!?!??</strong></a>
+        <a href="#" className="btn btn-primary" onClick={e => {
+            e.preventDefault();
+            window.history.back();
+        }}>Go back?</a>
     </div>,
     title: "Negative, I am a meat popsicle"
 };
