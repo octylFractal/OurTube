@@ -36,7 +36,6 @@ import com.corundumstudio.socketio.SocketIONamespace;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.eventbus.Subscribe;
 
-import me.kenzierocks.ourtube.events.SkipSong;
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
@@ -117,9 +116,11 @@ public class OurTubeApi {
             subscriptions.put(sessId, subs);
 
             // emit the entire queue for this guildId to the client
-            GuildQueue.INSTANCE.useQueue(guildId, queue -> {
-                queue.forEach(song -> subs.onPush(PushSong.create(song)));
-            });
+            GuildQueue.getPlayer(guildId).getPlaylist().stream()
+                    .map(GuildQueue::getSongId)
+                    .map(PushSong::create)
+                    .forEach(subs::onPush);
+
             SongProgress progress = SongProgressMap.INSTANCE.getProgress(guildId);
             if (progress != null) {
                 subs.onNewProgress(NewProgress.create(progress));
@@ -146,7 +147,7 @@ public class OurTubeApi {
             }
             GuildVolume.INSTANCE.setVolume(guildId, volume);
         }, String.class, Float.class);
-        
+
         server.addDisconnectListener(disconClient -> {
             Subscription s = subscriptions.remove(disconClient.getSessionId());
             if (s != null) {
@@ -230,7 +231,7 @@ public class OurTubeApi {
 
             String channel = GuildChannels.INSTANCE.getChannel(guildId);
             sub.onNewChannel(NewChannel.create(channel));
-            
+
             GuildChannels.INSTANCE.events.subscribe(guildId, sub);
 
             subscriptions.put(client.getSessionId(), sub);
@@ -257,7 +258,7 @@ public class OurTubeApi {
             if (songId == null) {
                 return;
             }
-            Dissy.events.post(guildId, SkipSong.create(songId));
+            GuildQueue.INSTANCE.skipSong(guildId, songId);
         }, String.class, String.class);
     }
 

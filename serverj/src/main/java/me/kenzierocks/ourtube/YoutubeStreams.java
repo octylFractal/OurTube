@@ -33,6 +33,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
@@ -44,7 +46,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 public class YoutubeStreams {
 
-    private static final Logger LOGGER = Log.get();
+    private static final Logger LOGGER =Log.get();
 
     private static final AudioFormat FFMPEG_OUT_FORMAT = new AudioFormat(
             AudioFormat.Encoding.PCM_SIGNED,
@@ -56,18 +58,24 @@ public class YoutubeStreams {
             true); // big endian
 
     /**
-     * 
-     * @param songData
      * @return PCM audio tuned to discord4j internal specs for optimization
      */
-    public static AudioInputStream newStream(SongData songData) {
+    public static InputStream newStream(SongData songData) {
         String url = "https://www.youtube.com/watch?v=" + songData.getId();
         LOGGER.debug("{}: Acquring download...", url);
         InputStream dl = callYtdl(url);
 
         LOGGER.debug("{}: Transcoding...", url);
+        InputStream ffmpeg = callFfmpeg(dl);
+        return ffmpeg;
+    }
+
+    /**
+     * @return PCM audio tuned to discord4j internal specs for optimization
+     */
+    public static AudioInputStream annotateStream(SongData songData, InputStream stream) {
         float frameLength = computeFrameLength(songData);
-        return new AudioInputStream(callFfmpeg(dl), FFMPEG_OUT_FORMAT, (long) Math.ceil(frameLength));
+        return new AudioInputStream(stream, FFMPEG_OUT_FORMAT, (long) Math.ceil(frameLength));
     }
 
     private static float computeFrameLength(SongData songData) {
@@ -91,6 +99,8 @@ public class YoutubeStreams {
     private static final BitSet YTDL_OK = new BitSet();
     static {
         YTDL_OK.set(0);
+        // early stream terminations -- skip song
+        YTDL_OK.set(1);
     }
 
     private static final BitSet FFMPEG_OK = new BitSet();
@@ -116,6 +126,7 @@ public class YoutubeStreams {
 
     // 128kb buffer -- audio is large :)
     private static final int LARGE_BUFFER = 128 * 1024;
+    private static final long READ_TIMEOUT = TimeUnit.SECONDS.toNanos(30);
 
     private static InputStream callFfmpeg(InputStream source) {
         try {
@@ -123,9 +134,33 @@ public class YoutubeStreams {
                     "-ar", "48000", "-ac", "2", "-acodec", "pcm_s16be", "-f", "s16be", "pipe:1")
                             .start();
             startChecker("FFmpeg", ffmpeg, FFMPEG_OK);
+            AtomicLong lastReadReturn = new AtomicLong(System.nanoTime());
+            CHECKER.submit(() -> {
+                while (ffmpeg.isAlive()) {
+                    long lastRead = lastReadReturn.get();
+                    long now = System.nanoTime();
+                    long diff = now - lastRead;
+                    if (diff >= READ_TIMEOUT) {
+                        // no reads for a while, time to exit!
+                        LOGGER.warn("Closing ffmpeg input due to read timeout!");
+                        source.close();
+                        break;
+                    }
+                    long remaining = READ_TIMEOUT - diff;
+                    TimeUnit.NANOSECONDS.sleep(remaining);
+                }
+                return null;
+            });
             WRITER.submit(() -> {
                 try (OutputStream out = ffmpeg.getOutputStream()) {
-                    ByteStreams.copy(source, out);
+                    byte[] buf = new byte[8192];
+                    int read;
+                    while ((read = source.read(buf)) != -1) {
+                        lastReadReturn.set(System.nanoTime());
+                        out.write(buf, 0, read);
+                    }
+                } finally {
+                    source.close();
                 }
                 return null;
             });
