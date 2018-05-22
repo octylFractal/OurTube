@@ -71,6 +71,11 @@ public class Dissy {
 
                 @Subscribe
                 public void onNewChannel(NewChannel newChannel) {
+                    if (newChannel.getChannelId() == null) {
+                        IVoiceChannel conn = guild.getConnectedVoiceChannel();
+                        conn.leave();
+                        return;
+                    }
                     long cId = Long.parseUnsignedLong(newChannel.getChannelId());
                     guild.getVoiceChannelByID(cId).join();
                 }
