@@ -133,12 +133,12 @@ public enum GuildQueue {
             this.guildId = guildId;
             this.guildIdLong = Long.parseUnsignedLong(guildId);
             GuildVolume.INSTANCE.events.subscribe(guildId, this);
-            getPlayer(guildId).setVolume(GuildVolume.INSTANCE.getVolume(guildId));
+            getPlayer(guildId).setVolume(GuildVolume.INSTANCE.getVolume(guildId) / 100);
         }
         
         @Subscribe
         public void onSetVolume(SetVolume setVolume) {
-            getPlayer(guildId).setVolume(setVolume.getVolume());
+            getPlayer(guildId).setVolume(setVolume.getVolume() / 100);
         }
 
         private boolean notOurEvent(AudioPlayerEvent event) {
