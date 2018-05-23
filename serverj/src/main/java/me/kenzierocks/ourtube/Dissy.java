@@ -25,6 +25,7 @@
 package me.kenzierocks.ourtube;
 
 import java.io.IOException;
+import java.util.List;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -94,7 +95,10 @@ public class Dissy {
                     }
                     long cId = Long.parseUnsignedLong(newChannel.getChannelId());
                     guild.getVoiceChannelByID(cId).join();
-                    GuildQueue.getPlayer(guildId).getPlaylist().add(0, new Track(getStartupSound()));
+                    List<Track> playlist = GuildQueue.getPlayer(guildId).getPlaylist();
+                    if (playlist.isEmpty()) {
+                        playlist.add(new Track(getStartupSound()));
+                    }
                 }
             });
         };
