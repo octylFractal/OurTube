@@ -24,7 +24,14 @@
  */
 package me.kenzierocks.ourtube;
 
+import java.io.IOException;
+
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.UnsupportedAudioFileException;
+
 import com.google.common.eventbus.Subscribe;
+import com.google.common.io.Resources;
 
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
@@ -37,6 +44,7 @@ import sx.blah.discord.handle.impl.events.guild.GuildCreateEvent;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageEvent;
 import sx.blah.discord.handle.obj.IGuild;
 import sx.blah.discord.handle.obj.IVoiceChannel;
+import sx.blah.discord.util.audio.AudioPlayer.Track;
 
 public class Dissy {
 
@@ -45,6 +53,14 @@ public class Dissy {
             .registerListener(guildSubscriber())
             .registerListener(GuildQueue.INSTANCE)
             .login();
+
+    private static AudioInputStream getStartupSound() {
+        try {
+            return AudioSystem.getAudioInputStream(Resources.getResource("defaultsounds/winXpStart.mp3"));
+        } catch (UnsupportedAudioFileException | IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     static {
         BOT.getDispatcher().registerListener(new Object() {
@@ -78,6 +94,7 @@ public class Dissy {
                     }
                     long cId = Long.parseUnsignedLong(newChannel.getChannelId());
                     guild.getVoiceChannelByID(cId).join();
+                    GuildQueue.getPlayer(guildId).getPlaylist().add(0, new Track(getStartupSound()));
                 }
             });
         };

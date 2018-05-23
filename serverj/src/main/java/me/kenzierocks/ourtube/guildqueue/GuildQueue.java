@@ -135,7 +135,7 @@ public enum GuildQueue {
             GuildVolume.INSTANCE.events.subscribe(guildId, this);
             getPlayer(guildId).setVolume(GuildVolume.INSTANCE.getVolume(guildId) / 100);
         }
-        
+
         @Subscribe
         public void onSetVolume(SetVolume setVolume) {
             getPlayer(guildId).setVolume(setVolume.getVolume() / 100);
@@ -145,9 +145,13 @@ public enum GuildQueue {
             return event.getPlayer().getGuild().getLongID() != guildIdLong;
         }
 
+        private boolean notOurTrack(Track track) {
+            return !track.getMetadata().containsKey("songId");
+        }
+
         @EventSubscriber
         public void onTrackQueue(TrackQueueEvent event) {
-            if (notOurEvent(event)) {
+            if (notOurEvent(event) || notOurTrack(event.getTrack())) {
                 return;
             }
             String songId = getSongId(event.getTrack());
@@ -156,7 +160,7 @@ public enum GuildQueue {
 
         @EventSubscriber
         public void onTrackStart(TrackStartEvent event) {
-            if (notOurEvent(event)) {
+            if (notOurEvent(event) || notOurTrack(event.getTrack())) {
                 return;
             }
             String songId = getSongId(event.getTrack());
@@ -165,7 +169,7 @@ public enum GuildQueue {
 
         @EventSubscriber
         public void onTrackFinish(TrackFinishEvent event) {
-            if (notOurEvent(event)) {
+            if (notOurEvent(event) || notOurTrack(event.getOldTrack())) {
                 return;
             }
             String songId = getSongId(event.getOldTrack());
