@@ -90,14 +90,18 @@ public class Dissy {
                 public void onNewChannel(NewChannel newChannel) {
                     if (newChannel.getChannelId() == null) {
                         IVoiceChannel conn = guild.getConnectedVoiceChannel();
-                        conn.leave();
+                        if (conn != null) {
+                            conn.leave();
+                        }
                         return;
                     }
                     long cId = Long.parseUnsignedLong(newChannel.getChannelId());
                     guild.getVoiceChannelByID(cId).join();
                     List<Track> playlist = GuildQueue.getPlayer(guildId).getPlaylist();
-                    if (playlist.isEmpty()) {
-                        playlist.add(new Track(getStartupSound()));
+                    if (playlist.stream().allMatch(tr -> "true".equals(tr.getMetadata().get("startup")))) {
+                        Track track = new Track(getStartupSound());
+                        track.getMetadata().put("startup", "true");
+                        playlist.add(track);
                     }
                 }
             });
