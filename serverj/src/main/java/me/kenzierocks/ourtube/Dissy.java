@@ -24,19 +24,31 @@
  */
 package me.kenzierocks.ourtube;
 
-import java.io.IOException;
-import java.util.List;
+import java.net.URL;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
 
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.UnsupportedAudioFileException;
-
+import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.Resources;
+import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
+import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
+import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
+import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
+import me.kenzierocks.ourtube.lava.AudioProvider;
+import me.kenzierocks.ourtube.lava.OurTubeAudioSourceMananger;
+import me.kenzierocks.ourtube.lava.TrackScheduler;
 import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.events.EventSubscriber;
@@ -45,7 +57,6 @@ import sx.blah.discord.handle.impl.events.guild.GuildCreateEvent;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageEvent;
 import sx.blah.discord.handle.obj.IGuild;
 import sx.blah.discord.handle.obj.IVoiceChannel;
-import sx.blah.discord.util.audio.AudioPlayer.Track;
 
 public class Dissy {
 
@@ -55,12 +66,87 @@ public class Dissy {
             .registerListener(GuildQueue.INSTANCE)
             .login();
 
-    private static AudioInputStream getStartupSound() {
+    private static final AudioPlayerManager manager = new DefaultAudioPlayerManager();
+    static {
+        AudioSourceManagers.registerLocalSource(manager);
+        manager.registerSourceManager(new OurTubeAudioSourceMananger());
+    }
+
+    public static AudioPlayerManager getManager() {
+        return manager;
+    }
+
+    private static final Map<String, AudioPlayer> guildPlayers = new ConcurrentHashMap<>();
+
+    public static AudioPlayer getPlayer(String guildId) {
+        return guildPlayers.computeIfAbsent(guildId, k -> manager.createPlayer());
+    }
+
+    private static final Map<String, TrackScheduler> guildSchedulers = new ConcurrentHashMap<>();
+
+    public static TrackScheduler getScheduler(String guildId) {
+        return guildSchedulers.computeIfAbsent(guildId, k -> new TrackScheduler(k, getPlayer(k)));
+    }
+
+    private static final Map<String, AudioProvider> guildProviders = new ConcurrentHashMap<>();
+
+    public static AudioProvider getProvider(String guildId) {
+        return guildProviders.computeIfAbsent(guildId, k -> new AudioProvider(k, getPlayer(k)));
+    }
+
+    private static final Object startupFlag = new Object();
+
+    static {
+        URL startup = Resources.getResource("defaultsounds/winXpStart.mp3");
+        TempFileCache.cacheData("startup-xp", () -> Resources.asByteSource(startup).openBufferedStream());
+    }
+
+    public static CompletableFuture<AudioTrack> loadItem(String identifier) {
+        CompletableFuture<AudioTrack> future = new CompletableFuture<>();
+        manager.loadItem(identifier,
+                new AudioLoadResultHandler() {
+
+                    @Override
+                    public void trackLoaded(AudioTrack track) {
+                        future.complete(track);
+                    }
+
+                    @Override
+                    public void playlistLoaded(AudioPlaylist playlist) {
+                        future.complete(playlist.getTracks().get(0));
+                    }
+
+                    @Override
+                    public void noMatches() {
+                        future.completeExceptionally(new IllegalStateException("Missing sound loader"));
+                    }
+
+                    @Override
+                    public void loadFailed(FriendlyException exception) {
+                        future.completeExceptionally(exception);
+                    }
+                });
+        return future;
+    }
+
+    public static <T> T getCfEasily(CompletableFuture<T> cf) {
         try {
-            return AudioSystem.getAudioInputStream(Resources.getResource("defaultsounds/winXpStart.mp3"));
-        } catch (UnsupportedAudioFileException | IOException e) {
+            return cf.get();
+        } catch (ExecutionException e) {
+            Throwable t = e.getCause();
+            Throwables.throwIfUnchecked(t);
+            throw new RuntimeException(t);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
+    }
+
+    private static AudioTrack getStartupSound() {
+        CompletableFuture<AudioTrack> future = loadItem(TempFileCache.getCachedData("startup-xp").toString());
+        AudioTrack audioTrack = getCfEasily(future);
+        audioTrack.setUserData(startupFlag);
+        return audioTrack;
     }
 
     static {
@@ -84,6 +170,7 @@ public class Dissy {
             if (connected != null) {
                 connected.leave();
             }
+            guild.getAudioManager().setAudioProvider(getProvider(guildId));
             GuildChannels.INSTANCE.events.subscribe(guildId, new Object() {
 
                 @Subscribe
@@ -97,11 +184,17 @@ public class Dissy {
                     }
                     long cId = Long.parseUnsignedLong(newChannel.getChannelId());
                     guild.getVoiceChannelByID(cId).join();
-                    List<Track> playlist = GuildQueue.getPlayer(guildId).getPlaylist();
-                    if (playlist.stream().allMatch(tr -> "true".equals(tr.getMetadata().get("startup")))) {
-                        Track track = new Track(getStartupSound());
-                        track.getMetadata().put("startup", "true");
-                        playlist.add(track);
+                    TrackScheduler sch = getScheduler(guildId);
+                    sch.getAccessLock().lock();
+                    try {
+                        if (sch.getQueue().stream()
+                                .map(AudioTrack::getUserData)
+                                .allMatch(Predicate.isEqual(startupFlag))) {
+                            // just start up sounds. queue another!
+                            sch.addTrack(getStartupSound());
+                        }
+                    } finally {
+                        sch.getAccessLock().unlock();
                     }
                 }
             });

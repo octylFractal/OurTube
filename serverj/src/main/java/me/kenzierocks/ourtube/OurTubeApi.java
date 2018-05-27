@@ -28,6 +28,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -116,8 +117,11 @@ public class OurTubeApi {
             subscriptions.put(sessId, subs);
 
             // emit the entire queue for this guildId to the client
-            GuildQueue.getPlayer(guildId).getPlaylist().stream()
+            Dissy.getScheduler(guildId).getQueue()
+                    .stream()
                     .map(GuildQueue::getSongId)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
                     .map(PushSong::create)
                     .forEach(subs::onPush);
 

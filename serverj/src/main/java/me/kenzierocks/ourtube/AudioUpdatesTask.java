@@ -28,36 +28,44 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+
+import me.kenzierocks.ourtube.lava.AudioProvider;
 import me.kenzierocks.ourtube.songprogress.SongProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgressMap;
-import sx.blah.discord.util.audio.AudioPlayer;
-import sx.blah.discord.util.audio.AudioPlayer.Track;
 
 public class AudioUpdatesTask implements Runnable {
 
     private static final Logger LOGGER = Log.get();
 
     private final AudioPlayer player;
-    private final Track track;
+    private final AudioProvider timeTracker;
+    private final AudioTrack track;
+    private final String guildId;
     private final String songId;
+    private final long initialMs;
 
-    public AudioUpdatesTask(AudioPlayer player, Track track, String songId) {
+    public AudioUpdatesTask(AudioPlayer player, AudioProvider timeTracker, AudioTrack track, String guildId, String songId) {
         this.player = player;
+        this.timeTracker = timeTracker;
         this.track = track;
+        this.guildId = guildId;
         this.songId = songId;
+        this.initialMs = timeTracker.getDurationProvidedMs();
     }
 
     @Override
     public void run() {
-        if (player.getCurrentTrack() != this.track) {
+        if (player.getPlayingTrack() != this.track) {
             LOGGER.debug("{}: stopped updating progress, track wasn't playing!", songId);
             return;
         }
 
-        double progress = (100.0 * track.getCurrentTrackTime()) / (double) track.getTotalTrackTime();
-        SongProgressMap.INSTANCE.setProgress(player.getGuild().getStringID(), SongProgress.create(songId, progress));
+        double progress = (100 * (timeTracker.getDurationProvidedMs() - initialMs)) / (double) track.getDuration();
+        SongProgressMap.INSTANCE.setProgress(guildId, SongProgress.create(songId, progress));
 
-        AsyncService.GENERIC.schedule(this, track.getTotalTrackTime() / 200, TimeUnit.MILLISECONDS);
+        AsyncService.GENERIC.schedule(this, track.getDuration() / 200, TimeUnit.MILLISECONDS);
     }
 
 }

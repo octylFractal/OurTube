@@ -31,12 +31,12 @@ import com.google.common.base.Throwables;
 
 public class Log {
 
-	public static Logger get() {
-		return LoggerFactory.getLogger(getCallingMethod());
-	}
+    public static Logger get() {
+        return LoggerFactory.getLogger(getCallingMethod());
+    }
 
-	private static String getCallingMethod() {
-		return Throwables.lazyStackTrace(new Throwable()).get(2).getClassName();
-	}
+    private static String getCallingMethod() {
+        return Throwables.lazyStackTrace(new Throwable()).get(2).getClassName();
+    }
 
 }

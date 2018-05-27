@@ -29,13 +29,13 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 public abstract class NewProgress {
 
-	public static NewProgress create(SongProgress progress) {
-		return new AutoValue_NewProgress(progress);
-	}
+    public static NewProgress create(SongProgress progress) {
+        return new AutoValue_NewProgress(progress);
+    }
 
-	NewProgress() {
-	}
+    NewProgress() {
+    }
 
-	public abstract SongProgress getProgress();
+    public abstract SongProgress getProgress();
 
 }
