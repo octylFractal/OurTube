@@ -87,10 +87,11 @@ public class TrackScheduler extends AudioEventAdapter {
         accessLock.lock();
         try {
             AudioTrack nextTrack = queue.peek();
-            if (nextTrack == null) {
-                return;
+            if (nextTrack != null) {
+                LOGGER.debug("Started track " + nextTrack.getIdentifier());
+            } else {
+                LOGGER.debug("Stopping current track, no replacement.");
             }
-            LOGGER.debug("Started track " + nextTrack.getIdentifier());
             player.startTrack(nextTrack, false);
         } finally {
             accessLock.unlock();
