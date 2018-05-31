@@ -65,6 +65,7 @@ public class AsyncService {
             @Override
             public void onFailure(Throwable t) {
                 LOGGER.warn("Unhandled error in " + logId, t);
+                resultContainer.completeExceptionally(t);
             }
         }, GENERIC);
         // apparently we cannot call this async, so we do it now!
