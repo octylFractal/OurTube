@@ -48,6 +48,7 @@ const SongQueueItem = (props: { guildId: string, song: SongData, progress: numbe
             <div className="d-flex align-items-center justify-content-between w-100 px-3">
                 <p className="commutext text-light mb-0 mr-3"
                    style={{
+                       overflowY: 'hidden',
                        overflowX: 'hidden',
                        whiteSpace: 'nowrap',
                        textOverflow: 'ellipsis'
