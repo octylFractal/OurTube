@@ -99,8 +99,13 @@ public class TrackScheduler extends AudioEventAdapter {
     }
 
     public void skipTrack() {
-        queue.poll();
-        nextTrack();
+        accessLock.lock();
+        try {
+            queue.poll();
+            nextTrack();
+        } finally {
+            accessLock.unlock();
+        }
     }
 
     @Override
