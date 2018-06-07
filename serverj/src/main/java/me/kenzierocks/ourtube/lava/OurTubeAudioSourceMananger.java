@@ -58,7 +58,7 @@ public class OurTubeAudioSourceMananger implements AudioSourceManager {
         String id = reference.identifier.substring("ourtube:".length());
         SongData data;
         try {
-            data = YoutubeAccess.INSTANCE.getVideoData(id).get();
+            data = YoutubeAccess.INSTANCE.getVideoDataCached(id).get();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (ExecutionException e) {

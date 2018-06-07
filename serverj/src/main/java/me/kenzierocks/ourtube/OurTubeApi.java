@@ -163,7 +163,7 @@ public class OurTubeApi {
     private void setupYoutubeQueries() {
         server.addEventListener("yt.songData", String.class, (client, songId, ack) -> {
             AsyncService.ackFuture("yt.songData", ack,
-                    Response.from(YoutubeAccess.INSTANCE.getVideoData(songId)));
+                    Response.from(YoutubeAccess.INSTANCE.getVideoDataCached(songId)));
         });
     }
 

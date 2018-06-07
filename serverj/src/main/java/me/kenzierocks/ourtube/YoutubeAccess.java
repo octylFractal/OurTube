@@ -34,6 +34,7 @@ import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
@@ -52,6 +53,9 @@ import com.google.api.services.youtube.model.Video;
 import com.google.api.services.youtube.model.VideoContentDetails;
 import com.google.api.services.youtube.model.VideoListResponse;
 import com.google.api.services.youtube.model.VideoSnippet;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -79,7 +83,17 @@ public enum YoutubeAccess {
 
     private final YouTube yt3 = initYoutube();
 
-    public ListenableFuture<SongData> getVideoData(String songId) {
+    private final LoadingCache<String, ListenableFuture<SongData>> videoDataCache =
+            CacheBuilder.newBuilder()
+                    .maximumSize(1000)
+                    .expireAfterAccess(1, TimeUnit.HOURS)
+                    .build(CacheLoader.from(this::getVideoData));
+
+    public ListenableFuture<SongData> getVideoDataCached(String songId) {
+        return videoDataCache.getUnchecked(songId);
+    }
+
+    private ListenableFuture<SongData> getVideoData(String songId) {
         return AsyncService.GENERIC.submit(() -> {
             VideoListResponse ytResponse = yt3.videos().list("snippet,contentDetails")
                     .setId(songId)
