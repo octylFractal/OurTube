@@ -58,7 +58,6 @@ const inputOptions = {
         "redux",
         "react-redux",
         "reactstrap",
-        "socket.io-client",
         'crypto'
     ],
 };
@@ -74,8 +73,7 @@ const outputOptions = {
         "react-dom": "ReactDOM",
         "redux": "Redux",
         "react-redux": "ReactRedux",
-        "reactstrap": "Reactstrap",
-        "socket.io-client": "io"
+        "reactstrap": "Reactstrap"
     },
 };
 
