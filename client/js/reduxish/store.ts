@@ -3,8 +3,7 @@ import {annotateFunctions, createSliceDistributor, SliceMap} from "./slicing";
 import {SongData} from "./SongData";
 import {DiscordChannel, DiscordGuild, DiscordInformation, GuildInformation} from "./discord";
 import {observeStoreSlice} from "./reduxObservers";
-import {API} from "../websocket/api";
-import {isNullOrUndefined} from "../preconditions";
+import {getApi, initializeApi, SongQueuedEvent} from "../websocket/api";
 import {LSConst} from "../lsConst";
 import {optional} from "../optional";
 
@@ -19,7 +18,7 @@ export interface InternalState {
     discord?: DiscordInformation
     guild?: GuildInformation
     discordGuilds: DiscordGuild[]
-    songQueue: Array<string>
+    songQueue: Array<SongQueuedEvent>
     songProgress?: SongProgress
     volume?: number
     songDataCache: SongDataCache
@@ -31,13 +30,13 @@ const defaultState: InternalState = {
     songDataCache: {}
 };
 
-export function getSongData(songId: string): Promise<SongData> {
+export async function getSongData(songId: string): Promise<SongData> {
     const cache = ISTATE.getState().songDataCache;
     let data = cache[songId];
     if (data) {
-        return Promise.resolve(data);
+        return data;
     }
-    return API.requestYoutubeSongData(songId).then(data => {
+    return (await getApi()).requestYoutubeSongData(songId).then(data => {
         ISTATE.dispatch(Actions.cacheSongData({key: songId, value: data}));
         return data;
     });
@@ -69,11 +68,11 @@ export const Actions = annotateFunctions({
     setChannels: (prevState: GuildInformation, payload: DiscordChannel[]): GuildInformation => {
         return {...prevState, channels: payload};
     },
-    queueSong: (prevState: Array<string>, payload: string) => {
+    queueSong: (prevState: Array<SongQueuedEvent>, payload: SongQueuedEvent) => {
         return prevState.concat(payload);
     },
-    popSong: (prevState: Array<string>, payload: string) => {
-        return prevState.filter(s => s !== payload);
+    popSong: (prevState: Array<SongQueuedEvent>, payload: string) => {
+        return prevState.filter(s => s.youtubeId !== payload);
     },
     updateProgress: (prevState: SongProgress, payload: SongProgress): SongProgress => {
         return payload;
@@ -124,11 +123,14 @@ const guildsCache = new Map<string, DiscordGuild[]>();
 // Update Guilds when discord information becomes available:
 function setUnfilteredGuilds(guilds: DiscordGuild[]) {
     const guildIds = guilds.map(g => g.id);
-    API.filterGuildIds(guildIds).then(filteredGuildIds => {
-        const idSet = new Set(filteredGuildIds);
-        const filtered = guilds.filter(g => idSet.has(g.id));
-        ISTATE.dispatch(Actions.setGuilds(filtered));
-    }).catch(err => console.error('Error filtering guilds', err));
+    getApi()
+        .then(api => api.filterGuildIds(guildIds))
+        .then(filteredGuildIds => {
+            const idSet = new Set(filteredGuildIds);
+            const filtered = guilds.filter(g => idSet.has(g.id));
+            ISTATE.dispatch(Actions.setGuilds(filtered));
+        })
+        .catch(err => console.error('Error filtering guilds', err));
 }
 
 observeStoreSlice(ISTATE, state => optional(state).map(s => s.discord).map(d => d.accessToken).orElse(undefined), (accessToken: string | undefined) => {
@@ -140,6 +142,9 @@ observeStoreSlice(ISTATE, state => optional(state).map(s => s.discord).map(d => 
         setUnfilteredGuilds(cached);
         return;
     }
+    discordApiCall('/users/@me', accessToken, data => {
+        initializeApi(accessToken, data.id);
+    });
     discordApiCall('/users/@me/guilds', accessToken, data => {
         guildsCache.set(accessToken, data);
         setUnfilteredGuilds(data);
@@ -147,36 +152,38 @@ observeStoreSlice(ISTATE, state => optional(state).map(s => s.discord).map(d => 
 });
 // Initialize WS connection when guild selected
 observeStoreSlice(ISTATE, state => optional(state).map(s => s.guild).map(g => g.instance).orElse(undefined), (guild) => {
-    if (!guild) {
-        API.unsubscribeSongQueue();
-        API.unsubscribeDiscord();
-        ISTATE.dispatch(Actions.setChannels([]));
-        return;
-    }
-    API.getChannels(guild.id)
-        .then(channels => ISTATE.dispatch(Actions.setChannels(channels)))
-        .catch(err => console.error('error getting channels for', guild.id, err));
-    API.subscribeSongQueue(guild.id, {
-        queued(queueEvent) {
-            getSongData(queueEvent.youtubeId)
-                .catch(err => console.error('error getting data for', queueEvent, err));
-            ISTATE.dispatch(Actions.queueSong(queueEvent.youtubeId));
-        },
-        popped(event) {
-            const song = event.songId;
-            ISTATE.dispatch(Actions.popSong(song));
-        },
-        progress(event) {
-            ISTATE.dispatch(Actions.updateProgress(event));
-        },
-        volume(event) {
-            ISTATE.dispatch(Actions.setVolume(event.volume));
+    getApi().then(api => {
+        if (!guild) {
+            api.unsubscribeSongQueue();
+            api.unsubscribeDiscord();
+            ISTATE.dispatch(Actions.setChannels([]));
+            return;
         }
-    });
-    API.subscribeDiscord(guild.id, {
-        channelSelected(event) {
-            ISTATE.dispatch(Actions.selectChannel(event.channelId));
-        }
+        api.getChannels(guild.id)
+            .then(channels => ISTATE.dispatch(Actions.setChannels(channels)))
+            .catch(err => console.error('error getting channels for', guild.id, err));
+        api.subscribeSongQueue(guild.id, {
+            queued(queueEvent) {
+                getSongData(queueEvent.youtubeId)
+                    .catch(err => console.error('error getting data for', queueEvent, err));
+                ISTATE.dispatch(Actions.queueSong(queueEvent));
+            },
+            popped(event) {
+                const song = event.songId;
+                ISTATE.dispatch(Actions.popSong(song));
+            },
+            progress(event) {
+                ISTATE.dispatch(Actions.updateProgress(event));
+            },
+            volume(event) {
+                ISTATE.dispatch(Actions.setVolume(event.volume));
+            }
+        });
+        api.subscribeDiscord(guild.id, {
+            channelSelected(event) {
+                ISTATE.dispatch(Actions.selectChannel(event.channelId));
+            }
+        });
     });
 });
 

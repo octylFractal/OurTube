@@ -1,6 +1,7 @@
 {
   "plugins": [
-    "external-helpers"
+    "external-helpers",
+    "syntax-object-rest-spread"
   ],
   "presets": [
     [

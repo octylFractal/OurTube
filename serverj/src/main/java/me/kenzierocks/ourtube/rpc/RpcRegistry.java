@@ -22,44 +22,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.rpc;
 
-import org.slf4j.Logger;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.eventbus.EventBus;
 
-public class OurTube {
+public class RpcRegistry {
 
-    public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+    private final Map<String, RpcEventHandler.Typed<Object>> functions = new ConcurrentHashMap<>();
+    private final EventBus events = new EventBus("rpc-registry");
 
-    private static final Logger LOGGER = Log.get();
+    public EventBus getEvents() {
+        return events;
+    }
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
+    public void register(String event, RpcEventHandler.Typed<?> function) {
+        @SuppressWarnings("unchecked")
+        RpcEventHandler.Typed<Object> ez = (RpcEventHandler.Typed<Object>) function;
+        functions.put(event, ez);
+    }
 
-            @Override
-            public void onSuccess(Object result) {
-            }
+    public Optional<RpcEventHandler.Typed<Object>> get(String event) {
+        return Optional.of(functions.get(event));
+    }
 
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Error starting websockets", t);
-                System.exit(1);
-            }
-
-        }, AsyncService.GENERIC);
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
-        }
+    public Optional<Class<Object>> getArgumentClass(String event) {
+        return get(event)
+                .map(RpcEventHandler.Typed::argsClass);
     }
 
 }

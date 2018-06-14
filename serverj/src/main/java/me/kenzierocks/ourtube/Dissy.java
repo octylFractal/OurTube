@@ -149,6 +149,12 @@ public class Dissy {
         return audioTrack;
     }
 
+    public static String getNicknameForUserInGuild(String guildId, String userId) {
+        IGuild guild = BOT.getGuildByID(Long.parseUnsignedLong(guildId));
+        return guild.getUserByID(Long.parseUnsignedLong(userId))
+                .getNicknameForGuild(guild);
+    }
+
     static {
         BOT.getDispatcher().registerListener(new Object() {
 
@@ -187,11 +193,11 @@ public class Dissy {
                     TrackScheduler sch = getScheduler(guildId);
                     sch.getAccessLock().lock();
                     try {
-                        if (sch.getQueue().stream()
+                        if (sch.allTracksStream()
                                 .map(AudioTrack::getUserData)
                                 .allMatch(Predicate.isEqual(startupFlag))) {
                             // just start up sounds. queue another!
-                            sch.addTrack(getStartupSound());
+                            sch.addTrack(BOT.getOurUser().getStringID(), getStartupSound());
                         }
                     } finally {
                         sch.getAccessLock().unlock();

@@ -22,44 +22,52 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.rpc;
+
+import java.io.IOException;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 
-public class OurTube {
+import me.kenzierocks.ourtube.Log;
 
-    public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+public class RpcHelper {
 
     private static final Logger LOGGER = Log.get();
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
+    private final RpcRegistry registry;
+    private final ObjectMapper mapper;
 
-            @Override
-            public void onSuccess(Object result) {
-            }
+    public RpcHelper(RpcRegistry registry, ObjectMapper mapper) {
+        this.registry = registry;
+        this.mapper = mapper;
+    }
 
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Error starting websockets", t);
-                System.exit(1);
-            }
+    public RpcRegistry getRegistry() {
+        return registry;
+    }
 
-        }, AsyncService.GENERIC);
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
+    public ObjectMapper getMapper() {
+        return mapper;
+    }
+
+    public void callEvent(RpcClient client, String eventJson) throws IOException {
+        JsonNode node = mapper.readTree(eventJson);
+        JsonNode nameNode = node.get("name");
+        if (nameNode == null) {
+            return;
         }
+        String name = nameNode.asText();
+        Optional<Class<Object>> argClass = registry.getArgumentClass(name);
+        if (!argClass.isPresent()) {
+            LOGGER.debug("client={}, Ignoring event '{}': not registered", client.getId(), name);
+            return;
+        }
+        Object args = mapper.treeToValue(node.get("arguments"), argClass.get());
+        registry.get(name).get().handleEvent(client, args);
     }
 
 }

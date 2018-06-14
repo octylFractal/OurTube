@@ -24,10 +24,16 @@
  */
 package me.kenzierocks.ourtube.lava;
 
+import java.util.Comparator;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
+
+import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 
@@ -43,6 +49,7 @@ import me.kenzierocks.ourtube.Log;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
 import me.kenzierocks.ourtube.guildqueue.PopSong;
 import me.kenzierocks.ourtube.guildqueue.PushSong;
+import sx.blah.discord.handle.obj.IVoiceChannel;
 
 public class TrackScheduler extends AudioEventAdapter {
 
@@ -50,49 +57,96 @@ public class TrackScheduler extends AudioEventAdapter {
 
     private final String guildId;
     private final AudioPlayer player;
-    private final BlockingQueue<AudioTrack> queue;
+    private final ConcurrentHashMap<String, BlockingQueue<AudioTrack>> queue;
     private final Lock accessLock = new ReentrantLock();
 
     public TrackScheduler(String guildId, AudioPlayer player) {
         this.guildId = guildId;
         this.player = player;
         player.addListener(this);
-        this.queue = new LinkedBlockingQueue<>();
+        this.queue = new ConcurrentHashMap<>();
     }
 
-    public BlockingQueue<AudioTrack> getQueue() {
-        return queue;
+    public Stream<AudioTrack> allTracksStream() {
+        return queue.values().stream()
+                .flatMap(q -> q.stream())
+                .sorted(OurTubeAudioTrack.CMP_QUEUE_TIME);
+    }
+
+    public BlockingQueue<AudioTrack> getQueue(String userId) {
+        return queue.computeIfAbsent(userId, uid -> new LinkedBlockingDeque<>());
+    }
+
+    private Optional<BlockingQueue<AudioTrack>> peekNextQueue() {
+        IVoiceChannel connected = Dissy.BOT.getGuildByID(Long.parseUnsignedLong(guildId))
+                .getConnectedVoiceChannel();
+        if (connected == null) {
+            return Optional.empty();
+        }
+        return connected.getConnectedUsers().stream()
+                .map(user -> getQueue(user.getStringID()))
+                .filter(queue -> !queue.isEmpty())
+                .sorted(Comparator.comparing(BlockingQueue::peek, OurTubeAudioTrack.CMP_QUEUE_TIME))
+                .findFirst();
+    }
+
+    @Nullable
+    private AudioTrack pollNextTrack() {
+        accessLock.lock();
+        try {
+            return peekNextQueue().map(q -> q.poll()).orElse(null);
+        } finally {
+            accessLock.unlock();
+        }
+    }
+
+    @Nullable
+    private AudioTrack peekNextTrack() {
+        accessLock.lock();
+        try {
+            return peekNextQueue().map(q -> q.peek()).orElse(null);
+        } finally {
+            accessLock.unlock();
+        }
     }
 
     public Lock getAccessLock() {
         return accessLock;
     }
 
-    public void addTrack(AudioTrack track) {
+    public void addTrack(String userId, AudioTrack track) {
         accessLock.lock();
         try {
             LOGGER.debug("Queued track " + track.getIdentifier());
-            queue.add(track);
-            GuildQueue.getSongId(track)
+            getQueue(userId).add(track);
+            OurTubeAudioTrack.cast(track)
+                    .map(otat -> otat.getIdentifier())
                     .ifPresent(songId -> {
-                        GuildQueue.INSTANCE.events.post(guildId, PushSong.create(songId));
+                        String nick = Dissy.getNicknameForUserInGuild(guildId, userId);
+                        GuildQueue.INSTANCE.events.post(guildId, PushSong.create(songId, nick));
                     });
-            player.startTrack(track, true);
+            nextTrack(true);
         } finally {
             accessLock.unlock();
         }
     }
 
-    public void nextTrack() {
+    public void nextTrack(boolean noInterrupt) {
         accessLock.lock();
         try {
-            AudioTrack nextTrack = queue.peek();
+            Optional<BlockingQueue<AudioTrack>> queue = peekNextQueue();
+            if (!queue.isPresent()) {
+                return;
+            }
+            AudioTrack nextTrack = queue.get().peek();
             if (nextTrack != null) {
                 LOGGER.debug("Started track " + nextTrack.getIdentifier());
             } else {
                 LOGGER.debug("Stopping current track, no replacement.");
             }
-            player.startTrack(nextTrack, false);
+            if (player.startTrack(nextTrack, noInterrupt)) {
+                queue.get().poll();
+            }
         } finally {
             accessLock.unlock();
         }
@@ -101,8 +155,7 @@ public class TrackScheduler extends AudioEventAdapter {
     public void skipTrack() {
         accessLock.lock();
         try {
-            queue.poll();
-            nextTrack();
+            nextTrack(false);
         } finally {
             accessLock.unlock();
         }
@@ -110,7 +163,8 @@ public class TrackScheduler extends AudioEventAdapter {
 
     @Override
     public void onTrackStart(AudioPlayer player, AudioTrack track) {
-        GuildQueue.getSongId(track)
+        OurTubeAudioTrack.cast(track)
+                .map(otat -> otat.getIdentifier())
                 .ifPresent(songId -> {
                     AsyncService.GENERIC.execute(new AudioUpdatesTask(
                             player,
@@ -125,16 +179,17 @@ public class TrackScheduler extends AudioEventAdapter {
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
         accessLock.lock();
         try {
-            GuildQueue.getSongId(track)
+            OurTubeAudioTrack.cast(track)
+                    .map(otat -> otat.getIdentifier())
                     .ifPresent(songId -> {
                         GuildQueue.INSTANCE.events.post(guildId, PopSong.create(songId));
                     });
             if (endReason.mayStartNext) {
-                queue.poll();
-                nextTrack();
+                nextTrack(false);
             }
         } finally {
             accessLock.unlock();
         }
     }
+
 }

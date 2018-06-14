@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
+import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.Events;
 
 public enum GuildVolume {
@@ -44,7 +45,9 @@ public enum GuildVolume {
         return volume == null ? DEFAULT_VOLUME : volume;
     }
 
-    public void setVolume(String guildId, float volume) {
+    public void setVolume(String guildId, String userId, float volume) {
+        AuditLog.action(userId, "guild(%s).setVolume(%s)", guildId, volume)
+                .attempted().performed();
         Float old = volumeMap.put(guildId, volume);
         if (!Objects.equals(volume, old)) {
             events.post(guildId, SetVolume.create(volume));

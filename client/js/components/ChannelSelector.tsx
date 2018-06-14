@@ -1,11 +1,10 @@
 import {connect} from "react-redux";
 import {DiscordChannel} from "../reduxish/discord";
-import React, {ChangeEvent} from "react";
-import {FormEvent} from "react";
-import {Button, Col, Form, FormGroup, Input, Label, Row} from 'reactstrap';
+import React, {ChangeEvent, FormEvent} from "react";
+import {Button, Form, FormGroup, Input, Label} from 'reactstrap';
 import $ from "jquery";
 import {InternalState} from "../reduxish/store";
-import {API} from "../websocket/api";
+import {getApi} from "../websocket/api";
 
 interface Option {
     value: string
@@ -57,13 +56,13 @@ const ChannelSelector = (props: { guildId: string, channels: DiscordChannel[], s
         const $form = $(e.currentTarget);
         const $input = $form.find('#channelSelectField');
         let value = $input.val();
-        if (typeof value === "object" || typeof value === "number") {
-            value = value.toString();
+
+        let channel: string | undefined = undefined;
+        if (typeof value !== "undefined" && value !== "") {
+            channel = value.toString();
         }
-        if (value === "") {
-            value = undefined;
-        }
-        API.selectChannel(props.guildId, value);
+
+        getApi().then(api => api.selectChannel(props.guildId, channel));
     };
     const options = [{value: '', name: 'None'}].concat(
         props.channels.map(ch => ({value: ch.id, name: ch.name}))

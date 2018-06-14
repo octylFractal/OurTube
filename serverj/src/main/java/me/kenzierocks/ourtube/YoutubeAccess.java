@@ -58,6 +58,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import io.netty.handler.codec.http.QueryStringDecoder;
@@ -90,7 +92,22 @@ public enum YoutubeAccess {
                     .build(CacheLoader.from(this::getVideoData));
 
     public ListenableFuture<SongData> getVideoDataCached(String songId) {
-        return videoDataCache.getUnchecked(songId);
+        ListenableFuture<SongData> result = videoDataCache.getUnchecked(songId);
+        Futures.addCallback(result, new FutureCallback<SongData>() {
+
+            @Override
+            public void onFailure(Throwable t) {
+                // un-cache so we can try again later
+                if (videoDataCache.getIfPresent(songId) == result) {
+                    videoDataCache.invalidate(songId);
+                }
+            }
+
+            @Override
+            public void onSuccess(SongData result) {
+            }
+        }, AsyncService.GENERIC);
+        return result;
     }
 
     private ListenableFuture<SongData> getVideoData(String songId) {

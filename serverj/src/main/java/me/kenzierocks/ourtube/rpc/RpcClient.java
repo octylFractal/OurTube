@@ -22,44 +22,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.rpc;
 
-import org.slf4j.Logger;
+public interface RpcClient {
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+    String getId();
 
-public class OurTube {
+    String getUserId();
 
-    public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+    String getToken();
 
-    private static final Logger LOGGER = Log.get();
-
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
-
-            @Override
-            public void onSuccess(Object result) {
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Error starting websockets", t);
-                System.exit(1);
-            }
-
-        }, AsyncService.GENERIC);
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
-        }
-    }
+    void callFunction(String name, Object arguments);
 
 }

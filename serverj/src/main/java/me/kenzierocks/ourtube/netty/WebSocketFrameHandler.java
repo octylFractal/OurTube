@@ -22,43 +22,35 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.netty;
 
-import org.slf4j.Logger;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
+import me.kenzierocks.ourtube.rpc.RpcClient;
+import me.kenzierocks.ourtube.rpc.RpcHelper;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
 
-public class OurTube {
+    private final RpcClientRegistry clients;
+    private final RpcHelper helper;
 
-    public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+    public WebSocketFrameHandler(RpcClientRegistry clients, RpcHelper helper) {
+        this.clients = clients;
+        this.helper = helper;
+    }
 
-    private static final Logger LOGGER = Log.get();
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, WebSocketFrame frame) throws Exception {
+        if (frame instanceof TextWebSocketFrame) {
+            String request = ((TextWebSocketFrame) frame).text();
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
-
-            @Override
-            public void onSuccess(Object result) {
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Error starting websockets", t);
-                System.exit(1);
-            }
-
-        }, AsyncService.GENERIC);
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
+            RpcClient client = clients.getClient(ctx);
+            helper.callEvent(client, request);
+        } else {
+            throw new UnsupportedOperationException(
+                    "unsupported frame type: " + frame.getClass().getName());
         }
     }
 

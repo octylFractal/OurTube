@@ -1,12 +1,10 @@
-import {io} from "./wsbase";
-import "socket.io-client";
+import {OurTubeRpc} from "./wsbase";
 import {SongData} from "../reduxish/SongData";
 import {DiscordChannel} from "../reduxish/discord";
 
-type Socket = SocketIOClient.Socket;
-
 export type SongQueuedEvent = {
-    youtubeId: string
+    youtubeId: string,
+    submitter: string
 }
 
 export interface SongQueuedCallback {
@@ -57,33 +55,6 @@ export type DiscordCallbacks = {
     channelSelected: ChannelSelectedCallback
 }
 
-
-export interface Api {
-    subscribeSongQueue(guildId: string, callbacks: SongQueueCallbacks): void
-
-    unsubscribeSongQueue(guildId: string): void
-
-    queueSongs(guildId: string, songUrl: string): void
-
-    requestYoutubeSongData(songId: string): Promise<SongData>
-
-    filterGuildIds(guildIds: string[]): Promise<string[]>
-
-    getChannels(guildId: string): Promise<DiscordChannel[]>
-
-    subscribeDiscord(guildId: string, callbacks: DiscordCallbacks): void
-
-    unsubscribeDiscord(guildId: string): void
-
-    selectChannel(guildId: string, channelId: string): void
-
-    skipSong(guildId: string, songId: string): void
-
-    setVolume(guildId: string, volume: number): void
-
-    close(): void
-}
-
 interface Response<T> {
     error: string | undefined
     value: T | undefined
@@ -99,83 +70,127 @@ interface GoodResponse<T> extends Response<T> {
     value: T
 }
 
-class ApiImpl implements Api {
-    websocket: Socket;
+class Api {
+    private rpc: OurTubeRpc;
 
-    constructor(websocket: Socket) {
-        this.websocket = websocket
+    constructor(websocket: OurTubeRpc) {
+        this.rpc = websocket
     }
 
     subscribeSongQueue(guildId: string, callbacks: SongQueueCallbacks): void {
-        this.websocket.on('songQueue.queued', callbacks.queued);
-        this.websocket.on('songQueue.popped', callbacks.popped);
-        this.websocket.on('songQueue.progress', callbacks.progress);
-        this.websocket.on('songQueue.volume', callbacks.volume);
-        this.websocket.emit('songQueue.subscribe', guildId);
+        this.rpc.register('songQueue.queued', callbacks.queued);
+        this.rpc.register('songQueue.popped', callbacks.popped);
+        this.rpc.register('songQueue.progress', callbacks.progress);
+        this.rpc.register('songQueue.volume', callbacks.volume);
+        this.rpc.callFunction('songQueue.subscribe', guildId);
     }
 
     unsubscribeSongQueue(): void {
-        this.websocket.off('songQueue.queued');
-        this.websocket.off('songQueue.popped');
-        this.websocket.off('songQueue.progress');
-        this.websocket.emit('songQueue.unsubscribe');
+        this.rpc.remove('songQueue.queued');
+        this.rpc.remove('songQueue.popped');
+        this.rpc.remove('songQueue.progress');
+        this.rpc.callFunction('songQueue.unsubscribe');
     }
 
     queueSongs(guildId: string, songUrl: string): void {
-        this.websocket.emit('songQueue.queue', guildId, songUrl);
+        this.rpc.callFunction('songQueue.queue', {
+            guildId: guildId,
+            songUrl: songUrl
+        });
     }
 
-    private responseProtoToPromise<T>(event: string, ...args: any[]): Promise<T> {
+    private responseProtoToPromise<T>(event: string, argsMaker: (cbName: string) => any): Promise<T> {
         return new Promise<T>((resolve, reject) => {
-            this.websocket.emit(event, ...args, (response: Response<T>) => {
+            const cbName = this.rpc.createCallback(event, (response: Response<T>) => {
                 if (response.error) {
                     reject(response.error);
                 } else {
                     resolve(response.value);
                 }
             });
+
+            this.rpc.callFunction(event, argsMaker(cbName));
         });
     }
 
     requestYoutubeSongData(songId: string): Promise<SongData> {
-        return this.responseProtoToPromise('yt.songData', songId);
+        return this.responseProtoToPromise('yt.songData', cb => ({
+            songId: songId,
+            callbackName: cb
+        }));
     }
 
     filterGuildIds(guildIds: string[]): Promise<string[]> {
-        return this.responseProtoToPromise('dis.filterGuilds', guildIds);
+        return this.responseProtoToPromise('dis.filterGuilds', cb => ({
+            guildIds: guildIds,
+            callbackName: cb
+        }));
     }
 
     getChannels(guildId: string): Promise<DiscordChannel[]> {
-        return this.responseProtoToPromise('dis.channels', guildId);
+        return this.responseProtoToPromise('dis.channels', cb => ({
+            guildId: guildId,
+            callbackName: cb
+        }));
     }
 
     subscribeDiscord(guildId: string, callbacks: DiscordCallbacks): void {
-        this.websocket.on('dis.selectedChannel', callbacks.channelSelected);
-        this.websocket.emit('dis.subscribe', guildId);
+        this.rpc.register('dis.selectedChannel', callbacks.channelSelected);
+        this.rpc.callFunction('dis.subscribe', guildId);
     }
 
     unsubscribeDiscord(): void {
-        this.websocket.off('dis.selectedChannel');
-        this.websocket.emit('dis.unsubscribe');
+        this.rpc.remove('dis.selectedChannel');
+        this.rpc.callFunction('dis.unsubscribe');
     }
 
     selectChannel(guildId: string, channelId: string | undefined | null): void {
-        this.websocket.emit('dis.selectChannel', guildId, channelId);
+        this.rpc.callFunction('dis.selectChannel', {
+            guildId: guildId,
+            channelId: channelId
+        });
     }
 
     skipSong(guildId: string, songId: string): void {
-        this.websocket.emit('event.skipSong', guildId, songId);
+        this.rpc.callFunction('event.skipSong', {
+            guildId: guildId,
+            songId: songId
+        });
     }
 
     setVolume(guildId: string, volume: number): void {
-        this.websocket.emit('songQueue.setVolume', guildId, volume);
+        this.rpc.callFunction('songQueue.setVolume', {
+            guildId: guildId,
+            volume: volume
+        });
     }
 
     close(): void {
-        this.websocket.close();
+        this.rpc.close();
     }
 }
 
-export const API = new ApiImpl(io('/api', {
-    path: '/server/transport-layer'
-}));
+let API: Promise<Api> | undefined = undefined;
+
+async function createApi(token: string, userId: string): Promise<Api> {
+    const rpc = new OurTubeRpc(
+        `ws://${window.location.host}/server/gateway?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`
+    );
+    await rpc.readyPromise();
+    return new Api(rpc);
+}
+
+export function initializeApi(token: string, userId: string) {
+    API = createApi(token, userId);
+}
+
+export function getApi(): Promise<Api> {
+    if (typeof API === "undefined") {
+        throw new Error("API not initialized");
+    }
+    return API.catch(err => {
+        console.error("Tracing error for getApi", err);
+        throw err;
+    });
+}
+

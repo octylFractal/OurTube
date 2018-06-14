@@ -32,13 +32,19 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.Optional;
 
 import javax.sound.sampled.AudioFormat.Encoding;
 import javax.sound.sampled.AudioInputStream;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.Comparators;
 import com.sedmelluq.discord.lavaplayer.filter.AudioPipeline;
 import com.sedmelluq.discord.lavaplayer.filter.AudioPipelineFactory;
 import com.sedmelluq.discord.lavaplayer.filter.PcmFormat;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import com.sedmelluq.discord.lavaplayer.track.BaseAudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioProcessingContext;
@@ -46,18 +52,62 @@ import com.sedmelluq.discord.lavaplayer.track.playback.LocalAudioTrackExecutor;
 
 public class OurTubeAudioTrack extends BaseAudioTrack {
 
+    public static final Comparator<AudioTrack> CMP_QUEUE_TIME = Comparator.comparing(
+            track -> {
+                return OurTubeAudioTrack.metadata(track)
+                        .map(OurTubeMetadata::queueTime);
+            },
+            Comparators.emptiesFirst(Comparator.naturalOrder()));
+
+    public static Optional<OurTubeAudioTrack> cast(AudioTrack track) {
+        if (!(track instanceof OurTubeAudioTrack)) {
+            return Optional.empty();
+        }
+        return Optional.of((OurTubeAudioTrack) track);
+    }
+
+    public static Optional<OurTubeMetadata> metadata(AudioTrack track) {
+        return cast(track).map(t -> t.getMetadata());
+    }
+
+    @AutoValue
+    public abstract static class OurTubeMetadata {
+
+        public static OurTubeMetadata createForNow(String submitter) {
+            return create(submitter, Instant.now());
+        }
+
+        public static OurTubeMetadata create(String submitter, Instant queueTime) {
+            return new AutoValue_OurTubeAudioTrack_OurTubeMetadata(submitter, queueTime);
+        }
+
+        OurTubeMetadata() {
+        }
+
+        public abstract String submitter();
+
+        public abstract Instant queueTime();
+
+    }
+
+    private final OurTubeMetadata metadata;
     private final AudioInputStream stream;
     private final InputStream bufferedStream;
     private final ShortBuffer inputBuffer;
 
-    public OurTubeAudioTrack(AudioTrackInfo trackInfo, AudioInputStream stream) {
+    public OurTubeAudioTrack(AudioTrackInfo trackInfo, OurTubeMetadata metadata, AudioInputStream stream) {
         super(trackInfo);
         checkArgument(stream.getFormat().getEncoding() == Encoding.PCM_SIGNED, "Need PCM encoding");
+        this.metadata = metadata;
         this.inputBuffer = ByteBuffer.allocateDirect(2048 * stream.getFormat().getChannels())
                 .order(ByteOrder.nativeOrder())
                 .asShortBuffer();
         this.stream = stream;
         bufferedStream = new BufferedInputStream(stream);
+    }
+
+    public OurTubeMetadata getMetadata() {
+        return metadata;
     }
 
     @Override

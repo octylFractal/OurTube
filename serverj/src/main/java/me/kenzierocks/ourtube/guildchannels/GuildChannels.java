@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
+import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.Events;
 
 public enum GuildChannels {
@@ -46,7 +47,9 @@ public enum GuildChannels {
         return val == null ? null : val.orElse(null);
     }
 
-    public void setChannel(String guildId, @Nullable String channelId) {
+    public void setChannel(String guildId, String userId, @Nullable String channelId) {
+        AuditLog.action(userId, "guild(%s).setChannel(%s)", guildId, channelId)
+                .attempted().performed();
         Optional<String> newId = Optional.ofNullable(channelId);
         Optional<String> old = channelsMap.put(guildId, newId);
         if (!Objects.equals(newId, old)) {

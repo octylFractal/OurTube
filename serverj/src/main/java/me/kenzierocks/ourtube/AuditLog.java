@@ -25,41 +25,56 @@
 package me.kenzierocks.ourtube;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 
-public class OurTube {
+public class AuditLog {
 
-    public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+    private static final Logger LOGGER = LoggerFactory.getLogger("AuditLog");
 
-    private static final Logger LOGGER = Log.get();
+    public interface Action {
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
+        Action log(String state);
 
-            @Override
-            public void onSuccess(Object result) {
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Error starting websockets", t);
-                System.exit(1);
-            }
-
-        }, AsyncService.GENERIC);
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
+        default Action attempted() {
+            return log("attempted");
         }
+
+        default Action performed() {
+            return log("performed");
+        }
+
+        default Action denied() {
+            return log("denied");
+        }
+
+    }
+
+    private static class ActionImpl implements Action {
+
+        private final String userId;
+        private final String action;
+
+        public ActionImpl(String userId, String action) {
+            this.userId = userId;
+            this.action = action;
+        }
+
+        @Override
+        public Action log(String state) {
+            LOGGER.info("User {}: action '{}' {}", userId, action, state);
+            return this;
+        }
+    }
+
+    public static Action action(String userId, String action, Object... fmtArgs) {
+        return new ActionImpl(userId, String.format(action, fmtArgs));
+    }
+
+    public static String songInfo(String songId) {
+        SongData data = Futures.getUnchecked(YoutubeAccess.INSTANCE.getVideoDataCached(songId));
+        return String.format("%s[%s]", songId, data.getName());
     }
 
 }

@@ -11,21 +11,6 @@ apply plugin: 'application'
 
 mainClassName = 'me.kenzierocks.ourtube.OurTube'
 
-license {
-    ext {
-        name = rootProject.name
-        organization = rootProject.organization
-        url = rootProject.url
-    }
-    header = rootProject.file('HEADER.txt')
-    ignoreFailures = false
-    strictCheck = true
-    include '**/*.java'
-    mapping {
-        java = 'SLASHSTAR_STYLE'
-    }
-}
-
 inciseBlue {
     plugins {
     	apt
@@ -34,6 +19,10 @@ inciseBlue {
     }
     
     util.javaVersion = '1.8'
+}
+
+license {
+    exclude '**/me/kenzierocks/ourtube/netty/SimpleHttpServer.java'
 }
 
 def JACKSON = '2.9.5'
@@ -47,8 +36,8 @@ configurations.all {
     	force 'com.google.guava:guava:24.1-jre', 'com.google.code.findbugs:jsr305:3.0.1',
         	'org.apache.httpcomponents:httpcore:4.4.8', 'junit:junit:4.12',
         	'org.slf4j:slf4j-api:1.7.25', 'com.fasterxml.jackson.core:jackson-core:' + JACKSON,
-        	'com.fasterxml.jackson.core:jackson-databind:' + JACKSON, 'io.netty:netty-buffer:4.1.15.Final',
-        	'io.netty:netty-transport:4.1.15.Final', 'org.apache.httpcomponents:httpclient:4.5.4',
+        	'com.fasterxml.jackson.core:jackson-databind:' + JACKSON, 
+            'org.apache.httpcomponents:httpclient:4.5.4',
         	'org.apache.commons:commons-lang3:3.7', 'commons-io:commons-io:2.6'
 
      	cacheDynamicVersionsFor 10, 'minutes'
@@ -63,8 +52,10 @@ dependencies {
     implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
     implementation 'com.discord4j:Discord4J:2.10.1'
     implementation 'com.sedmelluq:lavaplayer:1.2.63'
-    implementation "com.corundumstudio.socketio:netty-socketio:1.7.13"
+    implementation group: 'io.netty', name: 'netty-all', version: '4.1.25.Final'
+
     implementation 'org.bytedeco.javacpp-presets:ffmpeg-platform:3.4.2-1.4.1'
+    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.10.0'
     
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:' + JACKSON
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-guava:' + JACKSON

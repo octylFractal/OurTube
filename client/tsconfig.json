@@ -4,7 +4,7 @@
   ],
   "compilerOptions": {
     "rootDir": "./js",
-    "target": "ES2015",
+    "target": "ESNext",
     "module": "es2015",
     "lib": [
       "ES6",

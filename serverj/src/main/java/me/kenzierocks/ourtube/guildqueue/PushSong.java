@@ -29,13 +29,15 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 public abstract class PushSong {
 
-    public static PushSong create(String songId) {
-        return new AutoValue_PushSong(songId);
+    public static PushSong create(String songId, String submitter) {
+        return new AutoValue_PushSong(songId, submitter);
     }
 
     PushSong() {
     }
 
     public abstract String getYoutubeId();
+
+    public abstract String getSubmitter();
 
 }

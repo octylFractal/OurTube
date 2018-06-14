@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.ExecutionException;
 
+import org.jsoup.UncheckedIOException;
+
 import com.google.common.base.Throwables;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
@@ -39,9 +41,11 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 
 import me.kenzierocks.ourtube.LazyInputStream;
+import me.kenzierocks.ourtube.OurTube;
 import me.kenzierocks.ourtube.SongData;
 import me.kenzierocks.ourtube.YoutubeAccess;
 import me.kenzierocks.ourtube.YoutubeStreams;
+import me.kenzierocks.ourtube.lava.OurTubeAudioTrack.OurTubeMetadata;
 
 public class OurTubeAudioSourceMananger implements AudioSourceManager {
 
@@ -55,10 +59,15 @@ public class OurTubeAudioSourceMananger implements AudioSourceManager {
         if (!reference.identifier.startsWith("ourtube:")) {
             return null;
         }
-        String id = reference.identifier.substring("ourtube:".length());
+        OurTubeItemInfo info;
+        try {
+            info = OurTube.MAPPER.readValue(reference.identifier.substring("ourtube:".length()), OurTubeItemInfo.class);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         SongData data;
         try {
-            data = YoutubeAccess.INSTANCE.getVideoDataCached(id).get();
+            data = YoutubeAccess.INSTANCE.getVideoDataCached(info.getId()).get();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
@@ -67,7 +76,8 @@ public class OurTubeAudioSourceMananger implements AudioSourceManager {
             throw new RuntimeException(t);
         }
         InputStream stream = new LazyInputStream(() -> YoutubeStreams.newStream(data));
-        return new OurTubeAudioTrack(createTrackInfo(data), YoutubeStreams.annotateStream(data, stream));
+        OurTubeMetadata meta = OurTubeMetadata.createForNow(info.getSubmitter());
+        return new OurTubeAudioTrack(createTrackInfo(data), meta, YoutubeStreams.annotateStream(data, stream));
     }
 
     private AudioTrackInfo createTrackInfo(SongData data) {

@@ -22,44 +22,39 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube;
+package me.kenzierocks.ourtube.rpc;
 
-import org.slf4j.Logger;
+import com.google.auto.value.AutoValue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+public interface RpcEventHandler<ARGS> {
 
-public class OurTube {
+    public static <ARGS> Typed<ARGS> typed(Class<ARGS> argType, RpcEventHandler<ARGS> handler) {
+        return new AutoValue_RpcEventHandler_Typed<>(argType, handler);
+    }
 
-    public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+    @AutoValue
+    abstract class Typed<ARGS> implements RpcEventHandler<ARGS> {
+        /*
+         * Why is there a pointless implementation when this information could
+         * be extracted from the ARGS typing in the eventual implementation?
+         * 
+         * Apparently lambdas do not hold their generic information. So, I
+         * resorted to this to maintain the lambda facade. This carries the
+         * information so that there's no need to extract it, at the cost of
+         * simplicity. It's still more readable than requiring a full class
+         * preamble.
+         */
 
-    private static final Logger LOGGER = Log.get();
+        public abstract Class<ARGS> argsClass();
 
-    public static void main(String[] args) throws InterruptedException {
-        // trigger ws
-        Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
+        abstract RpcEventHandler<ARGS> delegate();
 
-            @Override
-            public void onSuccess(Object result) {
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                LOGGER.error("Error starting websockets", t);
-                System.exit(1);
-            }
-
-        }, AsyncService.GENERIC);
-        // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
+        @Override
+        public void handleEvent(RpcClient client, ARGS args) {
+            delegate().handleEvent(client, args);
         }
     }
+
+    void handleEvent(RpcClient client, ARGS args);
 
 }

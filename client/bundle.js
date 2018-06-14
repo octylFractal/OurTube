@@ -5,6 +5,7 @@ const babel = require('rollup-plugin-babel');
 const typescript = require('rollup-plugin-typescript2');
 const uglify = require('rollup-plugin-uglify').uglify;
 const replace = require('rollup-plugin-replace');
+const nodent = require('rollup-plugin-nodent');
 const UglifyJS = require('uglify-es');
 const sourceMaps = require('rollup-plugin-sourcemaps');
 const process = require('process');
@@ -14,6 +15,11 @@ const plugins = [];
 plugins.push(
     typescript({
         typescript: require('typescript')
+    }),
+    nodent({
+        exclude: 'node_modules/**', // only transpile our source code
+        promises: true,
+        sourcemap: 'inline'
     }),
     replace({
         'process.env.NODE_ENV': JSON.stringify(process.env['ENVIRONMENT'] || 'production')

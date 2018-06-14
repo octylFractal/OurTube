@@ -20,7 +20,7 @@ type SimpleTooltipState = {
 
 export class SimpleTooltip extends React.Component<SimpleTooltipProps, SimpleTooltipState> {
     toggle: () => void;
-    _unsub: Unsubscribe;
+    _unsub: Unsubscribe | undefined;
 
     constructor(props: SimpleTooltipProps) {
         super(props);

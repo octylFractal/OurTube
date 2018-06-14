@@ -26,14 +26,11 @@ package me.kenzierocks.ourtube;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-import com.corundumstudio.socketio.SocketIOClient;
-import com.corundumstudio.socketio.SocketIONamespace;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.eventbus.Subscribe;
 
@@ -44,7 +41,11 @@ import me.kenzierocks.ourtube.guildqueue.PopSong;
 import me.kenzierocks.ourtube.guildqueue.PushSong;
 import me.kenzierocks.ourtube.guildvol.GuildVolume;
 import me.kenzierocks.ourtube.guildvol.SetVolume;
-import me.kenzierocks.ourtube.response.Response;
+import me.kenzierocks.ourtube.lava.OurTubeAudioTrack;
+import me.kenzierocks.ourtube.rpc.RpcClient;
+import me.kenzierocks.ourtube.rpc.RpcDisconnect;
+import me.kenzierocks.ourtube.rpc.RpcEventHandler;
+import me.kenzierocks.ourtube.rpc.RpcRegistry;
 import me.kenzierocks.ourtube.songprogress.NewProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgressMap;
@@ -52,9 +53,9 @@ import sx.blah.discord.handle.obj.IGuild;
 
 public class OurTubeApi {
 
-    private final SocketIONamespace server;
+    private final RpcRegistry server;
 
-    public OurTubeApi(SocketIONamespace socketIONamespace) {
+    public OurTubeApi(RpcRegistry socketIONamespace) {
         this.server = socketIONamespace;
     }
 
@@ -67,32 +68,32 @@ public class OurTubeApi {
 
     private final class Subscription {
 
-        private final SocketIOClient client;
+        private final RpcClient client;
         private final String guildId;
 
-        Subscription(SocketIOClient client, String guildId) {
+        Subscription(RpcClient client, String guildId) {
             this.client = client;
             this.guildId = guildId;
         }
 
         @Subscribe
         public void onPush(PushSong push) {
-            client.sendEvent("songQueue.queued", push);
+            client.callFunction("songQueue.queued", push);
         }
 
         @Subscribe
         public void onPop(PopSong pop) {
-            client.sendEvent("songQueue.popped", pop);
+            client.callFunction("songQueue.popped", pop);
         }
 
         @Subscribe
         public void onNewProgress(NewProgress progress) {
-            client.sendEvent("songQueue.progress", progress.getProgress());
+            client.callFunction("songQueue.progress", progress.getProgress());
         }
 
         @Subscribe
         public void onSetVolume(SetVolume volume) {
-            client.sendEvent("songQueue.volume", volume);
+            client.callFunction("songQueue.volume", volume);
         }
 
     }
@@ -103,10 +104,22 @@ public class OurTubeApi {
         GuildVolume.INSTANCE.events.unsubscribe(subscription.guildId, subscription);
     }
 
+    private static final class QueueSongs {
+
+        public String guildId;
+        public String songUrl;
+    }
+
+    private static final class ApiSetVolume {
+
+        public String guildId;
+        public float volume;
+    }
+
     private void setupSongQueue() {
-        Map<UUID, Subscription> subscriptions = new HashMap<>();
-        server.addEventListener("songQueue.subscribe", String.class, (client, guildId, ack) -> {
-            UUID sessId = client.getSessionId();
+        Map<String, Subscription> subscriptions = new ConcurrentHashMap<>();
+        server.register("songQueue.subscribe", RpcEventHandler.typed(String.class, (client, guildId) -> {
+            String sessId = client.getId();
             if (subscriptions.containsKey(sessId)) {
                 songQueueUnsubscribe(subscriptions.get(sessId));
             }
@@ -117,12 +130,18 @@ public class OurTubeApi {
             subscriptions.put(sessId, subs);
 
             // emit the entire queue for this guildId to the client
-            Dissy.getScheduler(guildId).getQueue()
-                    .stream()
-                    .map(GuildQueue::getSongId)
+            Stream.concat(
+                    Stream.of(Dissy.getPlayer(guildId).getPlayingTrack()),
+                    Dissy.getScheduler(guildId)
+                            .allTracksStream())
+                    .map(tr -> OurTubeAudioTrack.cast(tr))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(PushSong::create)
+                    .map(ot -> {
+                        String submitter = ot.getMetadata().submitter();
+                        String nick = Dissy.getNicknameForUserInGuild(guildId, submitter);
+                        return PushSong.create(ot.getIdentifier(), nick);
+                    })
                     .forEach(subs::onPush);
 
             SongProgress progress = SongProgressMap.INSTANCE.getProgress(guildId);
@@ -131,40 +150,42 @@ public class OurTubeApi {
             }
             subs.onSetVolume(SetVolume.create(GuildVolume.INSTANCE.getVolume(guildId)));
             GuildVolume.INSTANCE.events.subscribe(guildId, subs);
-        });
-        server.addEventListener("songQueue.unsubscribe", Void.class, (client, nothing, ack) -> {
-            UUID sessId = client.getSessionId();
+        }));
+        server.register("songQueue.unsubscribe", RpcEventHandler.typed(Void.class, (client, nothing) -> {
+            String sessId = client.getId();
             if (subscriptions.containsKey(sessId)) {
                 songQueueUnsubscribe(subscriptions.remove(sessId));
             }
-        });
-        server.addMultiTypeEventListener("songQueue.queue", (client, args, ack) -> {
-            String guildId = args.get(0);
-            String songUrl = args.get(1);
-            GuildQueue.INSTANCE.queueSongs(guildId, songUrl);
-        }, String.class, String.class);
-        server.addMultiTypeEventListener("songQueue.setVolume", (client, args, ack) -> {
-            String guildId = args.get(0);
-            Float volume = args.get(1);
-            if (volume == null) {
-                return;
-            }
-            GuildVolume.INSTANCE.setVolume(guildId, volume);
-        }, String.class, Float.class);
+        }));
+        server.register("songQueue.queue", RpcEventHandler.typed(QueueSongs.class, (client, queueSongs) -> {
+            GuildQueue.INSTANCE.queueSongs(queueSongs.guildId, client.getUserId(), queueSongs.songUrl);
+        }));
+        server.register("songQueue.setVolume", RpcEventHandler.typed(ApiSetVolume.class, (client, setVolume) -> {
+            GuildVolume.INSTANCE.setVolume(setVolume.guildId, client.getUserId(), setVolume.volume);
+        }));
 
-        server.addDisconnectListener(disconClient -> {
-            Subscription s = subscriptions.remove(disconClient.getSessionId());
-            if (s != null) {
-                songQueueUnsubscribe(s);
+        server.getEvents().register(new Object() {
+
+            @Subscribe
+            public void onDisconnect(RpcDisconnect disconnect) {
+                Subscription s = subscriptions.remove(disconnect.getClient().getId());
+                if (s != null) {
+                    songQueueUnsubscribe(s);
+                }
             }
         });
     }
 
+    private static final class GetSongData {
+
+        public String songId;
+        public String callbackName;
+    }
+
     private void setupYoutubeQueries() {
-        server.addEventListener("yt.songData", String.class, (client, songId, ack) -> {
-            AsyncService.ackFuture("yt.songData", ack,
-                    Response.from(YoutubeAccess.INSTANCE.getVideoDataCached(songId)));
-        });
+        server.register("yt.songData", RpcEventHandler.typed(GetSongData.class, (client, data) -> {
+            AsyncService.asyncResponse(client, data.callbackName, YoutubeAccess.INSTANCE.getVideoDataCached(data.songId));
+        }));
     }
 
     private final class DissyChannel {
@@ -183,17 +204,17 @@ public class OurTubeApi {
 
     private final class DissySub {
 
-        private final SocketIOClient client;
+        private final RpcClient client;
         private final String guildId;
 
-        DissySub(SocketIOClient client, String guildId) {
+        DissySub(RpcClient client, String guildId) {
             this.client = client;
             this.guildId = guildId;
         }
 
         @Subscribe
         public void onNewChannel(NewChannel event) {
-            client.sendEvent("dis.selectedChannel", event);
+            client.callFunction("dis.selectedChannel", event);
         }
     }
 
@@ -201,32 +222,50 @@ public class OurTubeApi {
         GuildChannels.INSTANCE.events.unsubscribe(subscription.guildId, subscription);
     }
 
-    private void setupDiscordQueries() {
-        server.addEventListener("dis.filterGuilds", String[].class, (client, guildIds, ack) -> {
-            AsyncService.ackCallable("dis.filterGuilds", ack, () -> {
-                return Stream.of(guildIds)
-                        .filter(gid -> Dissy.BOT.getGuildByID(Long.parseUnsignedLong(gid)) != null)
-                        .collect(toImmutableList());
-            });
-        });
-        server.addEventListener("dis.channels", String.class, (client, guildId, ack) -> {
-            AsyncService.ackCallable("dis.channels", ack, () -> {
-                IGuild guild = Dissy.BOT.getGuildByID(Long.parseUnsignedLong(guildId));
-                if (guild == null) {
-                    throw new IllegalArgumentException("Invalid guild ID.");
-                }
-                return guild.getVoiceChannels().stream()
-                        .map(ic -> new DissyChannel(ic.getStringID(), ic.getName()))
-                        .collect(toImmutableList());
-            });
-        });
-        server.addMultiTypeEventListener("dis.selectChannel", (client, args, ack) -> {
-            GuildChannels.INSTANCE.setChannel(args.get(0), args.get(1));
-        }, String.class, String.class);
+    private static final class FilterGuilds {
 
-        Map<UUID, DissySub> subscriptions = new HashMap<>();
-        server.addEventListener("dis.subscribe", String.class, (client, guildId, ack) -> {
-            UUID sessId = client.getSessionId();
+        public String[] guildIds;
+        public String callbackName;
+    }
+
+    private static final class GetVoiceChannels {
+
+        public String guildId;
+        public String callbackName;
+    }
+
+    private static final class SelectChannel {
+
+        public String guildId;
+        public String channelId;
+    }
+
+    private void setupDiscordQueries() {
+        server.register("dis.filterGuilds", RpcEventHandler.typed(FilterGuilds.class, (client, args) -> {
+            AsyncService.asyncResponse(client, args.callbackName,
+                    () -> Stream.of(args.guildIds)
+                            .filter(gid -> Dissy.BOT.getGuildByID(Long.parseUnsignedLong(gid)) != null)
+                            .collect(toImmutableList()));
+        }));
+        server.register("dis.channels", RpcEventHandler.typed(GetVoiceChannels.class, (client, args) -> {
+            AsyncService.asyncResponse(client, args.callbackName,
+                    () -> {
+                        IGuild guild = Dissy.BOT.getGuildByID(Long.parseUnsignedLong(args.guildId));
+                        if (guild == null) {
+                            throw new IllegalArgumentException("Invalid guild ID.");
+                        }
+                        return guild.getVoiceChannels().stream()
+                                .map(ic -> new DissyChannel(ic.getStringID(), ic.getName()))
+                                .collect(toImmutableList());
+                    });
+        }));
+        server.register("dis.selectChannel", RpcEventHandler.typed(SelectChannel.class, (client, args) -> {
+            GuildChannels.INSTANCE.setChannel(args.guildId, client.getUserId(), args.channelId);
+        }));
+
+        Map<String, DissySub> subscriptions = new ConcurrentHashMap<>();
+        server.register("dis.subscribe", RpcEventHandler.typed(String.class, (client, guildId) -> {
+            String sessId = client.getId();
             if (subscriptions.containsKey(sessId)) {
                 disUnsubscribe(subscriptions.get(sessId));
             }
@@ -238,32 +277,41 @@ public class OurTubeApi {
 
             GuildChannels.INSTANCE.events.subscribe(guildId, sub);
 
-            subscriptions.put(client.getSessionId(), sub);
-        });
+            subscriptions.put(client.getId(), sub);
+        }));
 
-        server.addEventListener("dis.unsubscribe", Void.class, (client, nothing, ack) -> {
-            UUID sessId = client.getSessionId();
+        server.register("dis.unsubscribe", RpcEventHandler.typed(Void.class, (client, nothing) -> {
+            String sessId = client.getId();
             if (subscriptions.containsKey(sessId)) {
                 disUnsubscribe(subscriptions.remove(sessId));
             }
-        });
-        server.addDisconnectListener(disconClient -> {
-            DissySub s = subscriptions.remove(disconClient.getSessionId());
-            if (s != null) {
-                disUnsubscribe(s);
+        }));
+
+        server.getEvents().register(new Object() {
+
+            @Subscribe
+            public void onDisconnect(RpcDisconnect disconnect) {
+                DissySub s = subscriptions.remove(disconnect.getClient().getId());
+                if (s != null) {
+                    disUnsubscribe(s);
+                }
             }
         });
     }
 
+    private static final class ApiSkipSong {
+
+        public String guildId;
+        public String songId;
+    }
+
     private void setupEvents() {
-        server.addMultiTypeEventListener("event.skipSong", (client, args, ack) -> {
-            String guildId = args.get(0);
-            String songId = args.get(1);
-            if (songId == null) {
+        server.register("event.skipSong", RpcEventHandler.typed(ApiSkipSong.class, (client, args) -> {
+            if (args.songId == null) {
                 return;
             }
-            GuildQueue.INSTANCE.skipSong(guildId, songId);
-        }, String.class, String.class);
+            GuildQueue.INSTANCE.skipSong(args.guildId, client.getUserId(), args.songId);
+        }));
     }
 
 }

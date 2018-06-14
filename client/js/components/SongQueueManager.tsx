@@ -3,9 +3,11 @@ import {connect} from "react-redux";
 import {Actions, InternalState, ISTATE, SongProgress} from "../reduxish/store";
 import {SongData} from "../reduxish/SongData";
 import {Button, ButtonGroup, Col, Form, FormGroup, Input, Label, Progress, Row} from 'reactstrap';
-import {API} from "../websocket/api";
+import {getApi, SongQueuedEvent} from "../websocket/api";
 import {AvailableChannelSelector} from "./ChannelSelector";
 import {Slider} from "./Slider";
+
+type QueuedSongData = SongData & SongQueuedEvent;
 
 const SongAddForm = (props: { guildId: string }) => {
     const submissionHandler = (e: FormEvent<HTMLFormElement>) => {
@@ -18,7 +20,7 @@ const SongAddForm = (props: { guildId: string }) => {
             return;
         }
         $input.val('');
-        API.queueSongs(props.guildId, String(url));
+        getApi().then(api => api.queueSongs(props.guildId, String(url)));
     };
     return <Form onSubmit={submissionHandler}>
         <Row className="mx-3">
@@ -35,7 +37,7 @@ const SongAddForm = (props: { guildId: string }) => {
     </Form>;
 };
 
-const SongQueueItem = (props: { guildId: string, song: SongData, progress: number }) => {
+const SongQueueItem = (props: { guildId: string, song: QueuedSongData, progress: number }) => {
     let thumbnail = props.song.thumbnail;
     return <li className="list-group-item">
         <div className="bg-success rounded p-1">
@@ -45,21 +47,29 @@ const SongQueueItem = (props: { guildId: string, song: SongData, progress: numbe
 
                 <Progress animated color="warning" className="rounded-0 bg-light" value={props.progress} max={1000}/>
             </div>
-            <div className="d-flex align-items-center justify-content-between w-100 px-3">
-                <p className="commutext text-light mb-0 mr-3"
+            <div className="d-flex flex-column align-items-start justify-content-start w-100 px-3">
+                <h6 className="commutext text-light mb-0"
                    style={{
                        overflowY: 'hidden',
                        overflowX: 'hidden',
                        whiteSpace: 'nowrap',
                        textOverflow: 'ellipsis'
                    }}
-                >{props.song.name}</p>
+                >{props.song.name}</h6>
+                <h6 className="commutext text-light mb-0 small"
+                   style={{
+                       overflowY: 'hidden',
+                       overflowX: 'hidden',
+                       whiteSpace: 'nowrap',
+                       textOverflow: 'ellipsis'
+                   }}
+                >Submitted by {props.song.submitter}</h6>
             </div>
         </div>
     </li>;
 };
 
-const SongQueueListDisplay = (props: { guildId: string, queuedSongs: SongData[], songProgress?: SongProgress }) => {
+const SongQueueListDisplay = (props: { guildId: string, queuedSongs: QueuedSongData[], songProgress?: SongProgress }) => {
     return <ul className="list-group">
         {props.queuedSongs.map(qs => {
             let sp = props.songProgress;
@@ -73,10 +83,10 @@ const SongQueueListDisplay = (props: { guildId: string, queuedSongs: SongData[],
 const SongQueueList = connect((ISTATE: InternalState) => {
     const songQueue = ISTATE.songQueue;
     const songDataCache = ISTATE.songDataCache;
-    const queuedSongs = songQueue.reduce((arr: SongData[], next) => {
-        const data = songDataCache[next];
+    const queuedSongs: QueuedSongData[] = songQueue.reduce((arr: QueuedSongData[], next) => {
+        const data = songDataCache[next.youtubeId];
         if (data) {
-            return arr.concat(data);
+            return arr.concat({...data, ...next});
         } else {
             return arr;
         }
@@ -100,13 +110,14 @@ const VolumeSlider = connect((ISTATE: InternalState) => {
 interface SongControlsProps {
     guildId: string
 }
+
 function SongControls(props: SongControlsProps) {
     function skipCurrentSong() {
         const queue = ISTATE.getState().songQueue;
         if (!queue || queue.length === 0) {
             return;
         }
-        API.skipSong(props.guildId, queue[0]);
+        getApi().then(api => api.skipSong(props.guildId, queue[0].youtubeId));
     }
 
     return <ButtonGroup>
@@ -121,7 +132,7 @@ function SongControls(props: SongControlsProps) {
             <VolumeSlider onValueSet={value => {
                 // update local volume immediately to keep state
                 ISTATE.dispatch(Actions.setVolume(value));
-                API.setVolume(props.guildId, value);
+                getApi().then(api => api.setVolume(props.guildId, value));
             }}/>
         </div>
     </ButtonGroup>;
