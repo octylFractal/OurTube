@@ -48,7 +48,7 @@ const SongQueueItem = (props: { guildId: string, song: QueuedSongData, progress:
                 <Progress animated color="warning" className="rounded-0 bg-light" value={props.progress} max={1000}/>
             </div>
             <div className="d-flex flex-column align-items-start justify-content-start w-100 px-3">
-                <h6 className="commutext text-light mb-0"
+                <h6 className="commutext text-light mb-0 mr-0"
                    style={{
                        overflowY: 'hidden',
                        overflowX: 'hidden',
@@ -56,7 +56,7 @@ const SongQueueItem = (props: { guildId: string, song: QueuedSongData, progress:
                        textOverflow: 'ellipsis'
                    }}
                 >{props.song.name}</h6>
-                <h6 className="commutext text-light mb-0 small"
+                <h6 className="commutext text-light mb-0 mr-0 small"
                    style={{
                        overflowY: 'hidden',
                        overflowX: 'hidden',
