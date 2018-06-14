@@ -135,17 +135,14 @@ public class TrackScheduler extends AudioEventAdapter {
         accessLock.lock();
         try {
             Optional<BlockingQueue<AudioTrack>> queue = peekNextQueue();
-            if (!queue.isPresent()) {
-                return;
-            }
-            AudioTrack nextTrack = queue.get().peek();
+            AudioTrack nextTrack = queue.map(q -> q.peek()).orElse(null);
             if (nextTrack != null) {
                 LOGGER.debug("Started track " + nextTrack.getIdentifier());
             } else {
                 LOGGER.debug("Stopping current track, no replacement.");
             }
             if (player.startTrack(nextTrack, noInterrupt)) {
-                queue.get().poll();
+                queue.ifPresent(q -> q.poll());
             }
         } finally {
             accessLock.unlock();
