@@ -173,8 +173,9 @@ class Api {
 let API: Promise<Api> | undefined = undefined;
 
 async function createApi(token: string, userId: string): Promise<Api> {
+	const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const rpc = new OurTubeRpc(
-        `ws://${window.location.host}/server/gateway?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`
+        `${proto}://${window.location.host}/server/gateway?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`
     );
     await rpc.readyPromise();
     return new Api(rpc);
