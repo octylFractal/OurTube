@@ -5,16 +5,24 @@ export interface DiscordGuild {
 }
 
 export interface DiscordInformation {
-    accessToken: string
+    accessToken?: string
 }
 
 export interface GuildInformation {
     instance: DiscordGuild
     channels: DiscordChannel[]
-    selectedChannel?: string
+}
+
+export interface SelectedChannels {
+    [guildId: string]: string | undefined
 }
 
 export interface DiscordChannel {
     id: string
     name: string
+}
+
+export interface GuildEvent<E> {
+    guildId: string
+    event: E
 }

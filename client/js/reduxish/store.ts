@@ -1,7 +1,14 @@
 import {createStore} from "redux";
-import {annotateFunctions, createSliceDistributor, SliceMap} from "./slicing";
+import {afsFactory, validateActionMap} from "./slicing";
 import {SongData} from "./SongData";
-import {DiscordChannel, DiscordGuild, DiscordInformation, GuildInformation} from "./discord";
+import {
+    DiscordChannel,
+    DiscordGuild,
+    DiscordInformation,
+    GuildEvent,
+    GuildInformation,
+    SelectedChannels
+} from "./discord";
 import {observeStoreSlice} from "./reduxObservers";
 import {getApi, initializeApi, SongQueuedEvent} from "../websocket/api";
 import {LSConst} from "../lsConst";
@@ -15,8 +22,9 @@ export interface SongProgress {
 }
 
 export interface InternalState {
-    discord?: DiscordInformation
-    guild?: GuildInformation
+    discord: DiscordInformation
+    guild: Record<string, GuildInformation>
+    selectedChannels: SelectedChannels
     discordGuilds: DiscordGuild[]
     songQueue: Array<SongQueuedEvent>
     songProgress?: SongProgress
@@ -25,6 +33,9 @@ export interface InternalState {
 }
 
 const defaultState: InternalState = {
+    discord: {},
+    guild: {},
+    selectedChannels: {},
     discordGuilds: [],
     songQueue: [],
     songDataCache: {}
@@ -51,17 +62,24 @@ export function selectGuild(guild?: DiscordGuild) {
     ISTATE.dispatch(Actions.selectGuild(guild));
 }
 
+const slicer = afsFactory<InternalState>();
 
-export const Actions = annotateFunctions({
-    updateInformation: (prevState, payload: DiscordInformation | undefined) => {
-        return payload;
-    },
-    selectGuild: (prevState: GuildInformation | undefined, payload: DiscordGuild): GuildInformation => {
-        return {channels: [], ...prevState, instance: payload};
-    },
-    selectChannel: (prevState: GuildInformation, payload: string | undefined): GuildInformation => {
-        return {...prevState, selectedChannel: payload};
-    },
+export const Actions = validateActionMap({
+    setAccessToken: slicer.newAction('discord', 'setAccessToken',
+        (prevState, payload: string | undefined) => {
+            return {...prevState, accessToken: payload};
+        }),
+    addGuildInformation: slicer.newAction('guild', 'selectGuild',
+        (prevState, payload: GuildEvent<GuildInformation>) => {
+            return {channels: [], ...prevState, instance: payload};
+        }),
+    selectChannel: slicer.newAction('selectedChannels', 'selectChannel',
+        (prevState, payload: SelectChannel) => {
+            if (prevState === undefined) {
+
+            }
+            return {...prevState, selectedChannel: payload};
+        }),
     setGuilds: (prevState, payload: DiscordGuild[]) => {
         return payload;
     },

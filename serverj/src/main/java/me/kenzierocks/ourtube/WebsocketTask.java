@@ -34,8 +34,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 import me.kenzierocks.ourtube.netty.WebSocketServerInitializer;
 import me.kenzierocks.ourtube.rpc.RpcHelper;
 import me.kenzierocks.ourtube.rpc.RpcRegistry;
@@ -56,7 +54,6 @@ public class WebsocketTask implements Runnable {
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .option(ChannelOption.SO_REUSEADDR, true)
-                    .handler(new LoggingHandler(LogLevel.DEBUG))
                     .childHandler(new WebSocketServerInitializer(helper));
 
             Channel ch = b.bind(13445).sync().channel();

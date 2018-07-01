@@ -55,6 +55,7 @@ import sx.blah.discord.api.events.EventSubscriber;
 import sx.blah.discord.api.events.IListener;
 import sx.blah.discord.handle.impl.events.guild.GuildCreateEvent;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageEvent;
+import sx.blah.discord.handle.impl.events.shard.LoginEvent;
 import sx.blah.discord.handle.obj.IGuild;
 import sx.blah.discord.handle.obj.IVoiceChannel;
 
@@ -174,7 +175,13 @@ public class Dissy {
             String guildId = guild.getStringID();
             IVoiceChannel connected = guild.getConnectedVoiceChannel();
             if (connected != null) {
-                connected.leave();
+                if (!BOT.isLoggedIn()) {
+                    BOT.getDispatcher().registerTemporaryListener((LoginEvent loggedIn) -> {
+                        connected.leave();
+                    });
+                } else {
+                    connected.leave();
+                }
             }
             guild.getAudioManager().setAudioProvider(getProvider(guildId));
             GuildChannels.INSTANCE.events.subscribe(guildId, new Object() {
