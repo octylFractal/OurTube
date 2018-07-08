@@ -1,8 +1,8 @@
 import React from "react";
-import {DiscordGuild} from "../reduxish/discord";
+import {RawGuild} from "../reduxish/stateInterfaces";
 import {StatefulToolTip} from "react-portal-tooltip";
 
-export default (props: { idPrefix: string, guild: DiscordGuild, onClick?: () => void }) => {
+export default (props: { idPrefix: string, guild: RawGuild, onClick?: () => void }) => {
     const g = props.guild;
     const iconElement = (g.icon
         ? <img className="w-100 rounded-circle"

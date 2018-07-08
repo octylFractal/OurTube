@@ -21,6 +21,7 @@ export function valuesEqual(value1: any, value2: any): boolean {
     }
     return true;
 }
+
 function arraysEqual(value1: any[], value2: any[]): boolean {
     if (value1.length !== value2.length) {
         return false;

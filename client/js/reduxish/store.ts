@@ -1,209 +1,186 @@
-import {createStore} from "redux";
-import {afsFactory, validateActionMap} from "./slicing";
+import {createStore, Store} from "redux";
+import {afsFactory, buildActionMap} from "./slicing";
 import {SongData} from "./SongData";
 import {
-    DiscordChannel,
-    DiscordGuild,
-    DiscordInformation,
-    GuildEvent,
-    GuildInformation,
-    SelectedChannels
-} from "./discord";
+    ChannelId,
+    GuildId,
+    GuildItem,
+    InternalState,
+    NicknameRecord,
+    RawChannelArray,
+    RawGuild,
+    Song,
+    SongDataRecord,
+    SongQueue,
+    UserId
+} from "./stateInterfaces";
 import {observeStoreSlice} from "./reduxObservers";
-import {getApi, initializeApi, SongQueuedEvent} from "../websocket/api";
+import {
+    getApi,
+    initializeApi,
+    SongProgressEvent,
+    SongQueuedEvent,
+    SongQueueEvent,
+    SongVolumeEvent
+} from "../websocket/api";
 import {LSConst} from "../lsConst";
 import {optional} from "../optional";
-
-type SongDataCache = { [songKey: string]: SongData };
-
-export interface SongProgress {
-    songId: string
-    progress: number
-}
-
-export interface InternalState {
-    discord: DiscordInformation
-    guild: Record<string, GuildInformation>
-    selectedChannels: SelectedChannels
-    discordGuilds: DiscordGuild[]
-    songQueue: Array<SongQueuedEvent>
-    songProgress?: SongProgress
-    volume?: number
-    songDataCache: SongDataCache
-}
+import {Immutable} from "../utils";
+import {checkNotNull} from "../preconditions";
+import {OTAction} from "./actionCreators";
 
 const defaultState: InternalState = {
-    discord: {},
-    guild: {},
-    selectedChannels: {},
-    discordGuilds: [],
-    songQueue: [],
-    songDataCache: {}
+    availableChannels: Immutable.Map(),
+    selectedChannelIds: Immutable.Map(),
+    currentSongs: Immutable.Map(),
+    songProgresses: Immutable.Map(),
+    volumes: Immutable.Map(),
+    songQueues: Immutable.Map(),
+    guilds: Immutable.Map(),
+    nicknameCaches: Immutable.Map(),
+    songDataCaches: Immutable.Map(),
 };
 
-export async function getSongData(songId: string): Promise<SongData> {
-    const cache = ISTATE.getState().songDataCache;
-    let data = cache[songId];
+export async function getSongData(dataId: string): Promise<SongData> {
+    const cache = ISTATE.getState().songDataCaches;
+    let data = cache.get(dataId);
     if (data) {
         return data;
     }
-    return (await getApi()).requestYoutubeSongData(songId).then(data => {
-        ISTATE.dispatch(Actions.cacheSongData({key: songId, value: data}));
+    return (await getApi()).requestYoutubeSongData(dataId).then(data => {
+        ISTATE.dispatch(Actions.cacheSongData({dataId: dataId, data: data}));
         return data;
     });
 }
 
-export function selectGuild(guild?: DiscordGuild) {
-    if (guild) {
-        localStorage.setItem(LSConst.DISCORD_GUILD_ID, guild.id);
+export async function getNickname(guildId: GuildId, userId: UserId): Promise<string> {
+    const cache = ISTATE.getState().nicknameCaches;
+    const cacheResult = optional(cache.get(guildId))
+        .map(guildCache => guildCache.get(userId));
+    if (cacheResult.isPresent()) {
+        return cacheResult.value;
+    }
+    return (await getApi()).requestUserNickname(guildId, userId).then(data => {
+        ISTATE.dispatch(Actions.cacheNickname({guildId: guildId, userId: userId, nickname: data}));
+        return data;
+    });
+}
+
+export function selectGuild(guildId: GuildId | undefined) {
+    if (guildId) {
+        localStorage.setItem(LSConst.DISCORD_GUILD_ID, guildId);
     } else {
         localStorage.removeItem(LSConst.DISCORD_GUILD_ID);
     }
-    ISTATE.dispatch(Actions.selectGuild(guild));
+    ISTATE.dispatch(Actions.selectGuild(guildId));
 }
 
 const slicer = afsFactory<InternalState>();
 
-export const Actions = validateActionMap({
-    setAccessToken: slicer.newAction('discord', 'setAccessToken',
+export const Actions = buildActionMap({
+    setAccessToken: slicer.newAction('accessToken',
         (prevState, payload: string | undefined) => {
-            return {...prevState, accessToken: payload};
+            return payload;
         }),
-    addGuildInformation: slicer.newAction('guild', 'selectGuild',
-        (prevState, payload: GuildEvent<GuildInformation>) => {
-            return {channels: [], ...prevState, instance: payload};
-        }),
-    selectChannel: slicer.newAction('selectedChannels', 'selectChannel',
-        (prevState, payload: SelectChannel) => {
-            if (prevState === undefined) {
-
+    selectGuild: slicer.newAction('visibleGuild',
+        (prevState, payload: GuildId | undefined, fullPrevState) => {
+            if (!fullPrevState.guilds.some((g, gId) => gId === payload)) {
+                return prevState;
             }
-            return {...prevState, selectedChannel: payload};
+            return payload;
         }),
-    setGuilds: (prevState, payload: DiscordGuild[]) => {
-        return payload;
-    },
-    setChannels: (prevState: GuildInformation, payload: DiscordChannel[]): GuildInformation => {
-        return {...prevState, channels: payload};
-    },
-    queueSong: (prevState: Array<SongQueuedEvent>, payload: SongQueuedEvent) => {
-        return prevState.concat(payload);
-    },
-    popSong: (prevState: Array<SongQueuedEvent>, payload: string) => {
-        return prevState.filter(s => s.youtubeId !== payload);
-    },
-    updateProgress: (prevState: SongProgress, payload: SongProgress): SongProgress => {
-        return payload;
-    },
-    setVolume: (prevState: number | undefined, payload: number | undefined): number | undefined => {
-        return payload;
-    },
-    cacheSongData: (prevState: SongDataCache, payload: { key: string, value: SongData }) => {
-        return {...prevState, [payload.key]: payload.value};
-    }
+    setChannels: slicer.newAction('availableChannels',
+        (prevState, payload: GuildItem<RawChannelArray>) => {
+            return prevState.set(payload.guildId, payload.item);
+        }),
+    selectChannel: slicer.newAction('selectedChannelIds',
+        (prevState, payload: GuildItem<ChannelId>) => {
+            return prevState.set(payload.guildId, payload.item);
+        }),
+    setCurrentSong: slicer.newAction('currentSongs',
+        (prevState, payload: SongQueueEvent) => {
+            const startedSong = ISTATE.getState()
+                .songQueues
+                .get(payload.guildId, Immutable.Map())
+                .get(payload.submitterId, Immutable.List())
+                .filter(song => checkNotNull(song).queueId === payload.queueId)
+                .first();
+            if (!startedSong) {
+                return prevState.set(payload.guildId, undefined);
+            }
+            // trigger a de-queue if it's found
+            ISTATE.dispatch(Actions.popSong(payload));
+            return prevState.set(payload.guildId, startedSong);
+        }),
+    setProgress: slicer.newAction('songProgresses',
+        (prevState, payload: SongProgressEvent) => {
+            const currentSong = ISTATE.getState().currentSongs.get(payload.guildId);
+            if (currentSong && currentSong.queueId === payload.queueId) {
+                return prevState.set(payload.queueId, payload.progress);
+            }
+            return prevState;
+        }),
+    setVolume: slicer.newAction('volumes',
+        (prevState, payload: SongVolumeEvent) => {
+            return prevState.set(payload.guildId, payload.volume);
+        }),
+    queueSong: slicer.newAction('songQueues',
+        (prevState: InternalState['songQueues'], payload: SongQueuedEvent) => {
+            return prevState.update(payload.guildId, Immutable.Map<UserId, SongQueue>(), guildQueues => {
+                return guildQueues.update(payload.submitterId, Immutable.List<Song>(), userQueue => {
+                    return userQueue.push({
+                        queueId: payload.queueId,
+                        queueTime: new Date(payload.queueTime),
+                        dataId: payload.dataId
+                    });
+                });
+            });
+        }),
+    popSong: slicer.newAction('songQueues',
+        (prevState: InternalState['songQueues'], payload: SongQueueEvent) => {
+            return prevState.update(payload.guildId, Immutable.Map<UserId, SongQueue>(), guildQueues => {
+                return guildQueues.update(payload.submitterId, Immutable.List<Song>(), (userQueue: SongQueue) => {
+                    return userQueue.filter(song => checkNotNull(song).queueId !== payload.queueId).toList();
+                });
+            });
+        }),
+    setGuilds: slicer.newAction('guilds',
+        (prevState, payload: RawGuild[]) => {
+            return Immutable.Seq(payload)
+                .toKeyedSeq()
+                .mapKeys((key, value) => checkNotNull(value).id)
+                .toMap();
+        }),
+    cacheNickname: slicer.newAction('nicknameCaches',
+        (prevState, payload: NicknameRecord) => {
+            return prevState.update(payload.guildId, Immutable.Map(), guildCache => {
+                return guildCache.set(payload.userId, payload.nickname);
+            });
+        }),
+    cacheSongData: slicer.newAction('songDataCaches',
+        (prevState, payload: SongDataRecord) => {
+            return prevState.set(payload.dataId, payload.data);
+        }),
 });
 
-const slices: SliceMap<InternalState> = {
-    discord: [
-        Actions.updateInformation
-    ],
-    guild: [
-        Actions.selectGuild,
-        Actions.selectChannel,
-        Actions.setChannels
-    ],
-    discordGuilds: [
-        Actions.setGuilds
-    ],
-    songQueue: [
-        Actions.queueSong,
-        Actions.popSong
-    ],
-    songProgress: [
-        Actions.updateProgress
-    ],
-    volume: [
-        Actions.setVolume
-    ],
-    songDataCache: [
-        Actions.cacheSongData
-    ]
-};
-
-const reducer = createSliceDistributor(slices, defaultState);
+const reducer = slicer.getReducer();
 
 const reduxDevtools: (() => any) | undefined = (window as any)['__REDUX_DEVTOOLS_EXTENSION__'];
 
-export const ISTATE = createStore(reducer, reduxDevtools && reduxDevtools());
+export const ISTATE: Store<InternalState, OTAction<any>> = createStore(reducer, defaultState, reduxDevtools && reduxDevtools());
 
-const guildsCache = new Map<string, DiscordGuild[]>();
 
-// Update Guilds when discord information becomes available:
-function setUnfilteredGuilds(guilds: DiscordGuild[]) {
-    const guildIds = guilds.map(g => g.id);
-    getApi()
-        .then(api => api.filterGuildIds(guildIds))
-        .then(filteredGuildIds => {
-            const idSet = new Set(filteredGuildIds);
-            const filtered = guilds.filter(g => idSet.has(g.id));
-            ISTATE.dispatch(Actions.setGuilds(filtered));
-        })
-        .catch(err => console.error('Error filtering guilds', err));
-}
-
-observeStoreSlice(ISTATE, state => optional(state).map(s => s.discord).map(d => d.accessToken).orElse(undefined), (accessToken: string | undefined) => {
-    if (!accessToken) {
-        return;
-    }
-    const cached = guildsCache.get(accessToken);
-    if (cached) {
-        setUnfilteredGuilds(cached);
-        return;
-    }
-    discordApiCall('/users/@me', accessToken, data => {
-        initializeApi(accessToken, data.id);
-    });
-    discordApiCall('/users/@me/guilds', accessToken, data => {
-        guildsCache.set(accessToken, data);
-        setUnfilteredGuilds(data);
-    });
-});
-// Initialize WS connection when guild selected
-observeStoreSlice(ISTATE, state => optional(state).map(s => s.guild).map(g => g.instance).orElse(undefined), (guild) => {
-    getApi().then(api => {
-        if (!guild) {
-            api.unsubscribeSongQueue();
-            api.unsubscribeDiscord();
-            ISTATE.dispatch(Actions.setChannels([]));
+observeStoreSlice(ISTATE,
+    state => state.accessToken,
+    (accessToken: string | undefined) => {
+        if (!accessToken) {
             return;
         }
-        api.getChannels(guild.id)
-            .then(channels => ISTATE.dispatch(Actions.setChannels(channels)))
-            .catch(err => console.error('error getting channels for', guild.id, err));
-        api.subscribeSongQueue(guild.id, {
-            queued(queueEvent) {
-                getSongData(queueEvent.youtubeId)
-                    .catch(err => console.error('error getting data for', queueEvent, err));
-                ISTATE.dispatch(Actions.queueSong(queueEvent));
-            },
-            popped(event) {
-                const song = event.songId;
-                ISTATE.dispatch(Actions.popSong(song));
-            },
-            progress(event) {
-                ISTATE.dispatch(Actions.updateProgress(event));
-            },
-            volume(event) {
-                ISTATE.dispatch(Actions.setVolume(event.volume));
-            }
+        discordApiCall('/users/@me', accessToken, data => {
+            initializeApi(accessToken, data.id);
         });
-        api.subscribeDiscord(guild.id, {
-            channelSelected(event) {
-                ISTATE.dispatch(Actions.selectChannel(event.channelId));
-            }
-        });
-    });
-});
+    }
+);
 
 export function discordApiCall(path: string, accessToken: string, callback: (data: any) => void) {
     $.get({
@@ -214,7 +191,7 @@ export function discordApiCall(path: string, accessToken: string, callback: (dat
     }).fail((xhr, textStatus, errorThrown) => {
         if (xhr.status === 401) {
             // 401 Unauthorized, log the user out!
-            ISTATE.dispatch(Actions.updateInformation(undefined));
+            ISTATE.dispatch(Actions.setAccessToken(undefined));
             return;
         }
         if (xhr.status == 429) {

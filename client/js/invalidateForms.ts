@@ -1,5 +1,6 @@
 import $ from "jquery";
 import {checkNotNull} from "./preconditions";
+import {optional} from "./optional";
 
 
 type HTMLElementWithValidity = HTMLElement & {
@@ -26,7 +27,14 @@ export function hookFields(invalidityClass: string = INVALIDITY_CLASS) {
                 $(e.target).find(`.${invalidityClass}`).removeClass(invalidityClass);
             });
             forms.find('input').on('invalid', e => {
-                checkNotNull(e.target.parentElement).classList.add(invalidityClass);
+                const classList = optional(e.target)
+                    .map(target => target.item(0))
+                    .map(firstTarget => firstTarget.parentElement)
+                    .map(parentElement => parentElement.classList);
+                if (!classList.isPresent()) {
+                    return;
+                }
+                classList.value.add(invalidityClass);
             });
         }
     });

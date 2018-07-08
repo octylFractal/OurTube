@@ -1,13 +1,17 @@
 import React from "react";
 import {selectGuild} from "../reduxish/store";
-import {DiscordGuild} from "../reduxish/discord";
+import {GuildKeyed, RawGuild} from "../reduxish/stateInterfaces";
 import GuildIcon from "./GuildIcon";
 import {Col, Row} from "reactstrap";
+import {isNullOrUndefined} from "../preconditions";
 
-export default (props: { guilds: DiscordGuild[] }) => {
-    const mappedGuilds = props.guilds.map(g => {
-        return <div key={g.id}>
-            <GuildIcon idPrefix="guildSelector" guild={g} onClick={() => selectGuild(g)}/>
+export default (props: { guilds: GuildKeyed<RawGuild> }) => {
+    const mappedGuilds = props.guilds.map((g, key) => {
+        if (isNullOrUndefined(g) || isNullOrUndefined(key)) {
+            return <div/>;
+        }
+        return <div key={key}>
+            <GuildIcon idPrefix="guildSelector" guild={g} onClick={() => selectGuild(key)}/>
         </div>;
     });
     return <Row>

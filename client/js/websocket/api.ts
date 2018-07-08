@@ -1,26 +1,33 @@
 import {OurTubeRpc} from "./wsbase";
 import {SongData} from "../reduxish/SongData";
-import {DiscordChannel} from "../reduxish/discord";
+import {ChannelId, GuildId, QueueId, RawChannel, UserId} from "../reduxish/stateInterfaces";
 
-export type SongQueuedEvent = {
-    youtubeId: string,
-    submitter: string
+export interface OurEvent {
+    guildId: GuildId
+}
+
+export interface SongQueuedEvent extends OurEvent {
+    dataId: string
+    queueId: QueueId
+    queueTime: number
+    submitterId: UserId
 }
 
 export interface SongQueuedCallback {
     (event: SongQueuedEvent): void
 }
 
-export type SongPoppedEvent = {
-    songId: string
+export interface SongQueueEvent extends OurEvent {
+    queueId: QueueId
+    submitterId: UserId
 }
 
-export interface SongPoppedCallback {
-    (event: SongPoppedEvent): void
+export interface SongQueueEventCallback {
+    (event: SongQueueEvent): void
 }
 
-export type SongProgressEvent = {
-    songId: string,
+export interface SongProgressEvent extends OurEvent {
+    queueId: QueueId,
     progress: number
 }
 
@@ -28,7 +35,7 @@ export interface SongProgressCallback {
     (event: SongProgressEvent): void
 }
 
-export type SongVolumeEvent = {
+export interface SongVolumeEvent extends OurEvent {
     volume: number
 }
 
@@ -36,22 +43,24 @@ export interface SongVolumeCallback {
     (event: SongVolumeEvent): void
 }
 
-export type SongQueueCallbacks = {
-    queued: SongQueuedCallback,
-    popped: SongPoppedCallback,
-    progress: SongProgressCallback,
+export interface SongQueueCallbacks {
+    queued: SongQueuedCallback
+    popped: SongQueueEventCallback
+    started: SongQueueEventCallback
+    stopped: SongQueueEventCallback
+    progress: SongProgressCallback
     volume: SongVolumeCallback
 }
 
-export type ChannelSelectedEvent = {
-    channelId: string | undefined
+export interface ChannelSelectedEvent extends OurEvent {
+    channelId: ChannelId | undefined
 }
 
 export interface ChannelSelectedCallback {
     (event: ChannelSelectedEvent): void
 }
 
-export type DiscordCallbacks = {
+export interface DiscordCallbacks {
     channelSelected: ChannelSelectedCallback
 }
 
@@ -77,7 +86,7 @@ class Api {
         this.rpc = websocket
     }
 
-    subscribeSongQueue(guildId: string, callbacks: SongQueueCallbacks): void {
+    subscribeSongQueue(guildId: GuildId, callbacks: SongQueueCallbacks): void {
         this.rpc.register('songQueue.queued', callbacks.queued);
         this.rpc.register('songQueue.popped', callbacks.popped);
         this.rpc.register('songQueue.progress', callbacks.progress);
@@ -120,14 +129,21 @@ class Api {
         }));
     }
 
-    filterGuildIds(guildIds: string[]): Promise<string[]> {
-        return this.responseProtoToPromise('dis.filterGuilds', cb => ({
-            guildIds: guildIds,
+    requestUserNickname(guildId: GuildId, userId: UserId): Promise<string> {
+        return this.responseProtoToPromise('dis.userNickname', cb => ({
+            guildId: guildId,
+            userId: userId,
             callbackName: cb
         }));
     }
 
-    getChannels(guildId: string): Promise<DiscordChannel[]> {
+    getMyGuilds(): Promise<GuildId[]> {
+        return this.responseProtoToPromise('dis.myGuilds', cb => ({
+            callbackName: cb
+        }));
+    }
+
+    getChannels(guildId: string): Promise<RawChannel[]> {
         return this.responseProtoToPromise('dis.channels', cb => ({
             guildId: guildId,
             callbackName: cb
@@ -173,7 +189,7 @@ class Api {
 let API: Promise<Api> | undefined = undefined;
 
 async function createApi(token: string, userId: string): Promise<Api> {
-	const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const rpc = new OurTubeRpc(
         `${proto}://${window.location.host}/server/gateway?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`
     );

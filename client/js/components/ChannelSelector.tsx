@@ -1,10 +1,12 @@
 import {connect} from "react-redux";
-import {DiscordChannel} from "../reduxish/discord";
 import React, {ChangeEvent, FormEvent} from "react";
 import {Button, Form, FormGroup, Input, Label} from 'reactstrap';
 import $ from "jquery";
-import {InternalState} from "../reduxish/store";
 import {getApi} from "../websocket/api";
+import {InternalState, RawChannelArray, visibleEntry} from "../reduxish/stateInterfaces";
+import {optional} from "../optional";
+import {Immutable} from "../utils";
+import {checkNotNull} from "../preconditions";
 
 interface Option {
     value: string
@@ -50,7 +52,7 @@ class CSSelect extends React.Component<CSSelectProps, CSSelectState> {
     }
 }
 
-const ChannelSelector = (props: { guildId: string, channels: DiscordChannel[], selectedChannel?: string }) => {
+const ChannelSelector = (props: { guildId: string, channels: RawChannelArray, selectedChannel: string | undefined }) => {
     const submissionHandler = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const $form = $(e.currentTarget);
@@ -65,7 +67,10 @@ const ChannelSelector = (props: { guildId: string, channels: DiscordChannel[], s
         getApi().then(api => api.selectChannel(props.guildId, channel));
     };
     const options = [{value: '', name: 'None'}].concat(
-        props.channels.map(ch => ({value: ch.id, name: ch.name}))
+        props.channels.map(ch => {
+            const chSafe = checkNotNull(ch);
+            return {value: chSafe.id, name: chSafe.name};
+        }).toArray()
     );
     return <Form onSubmit={submissionHandler} inline className="justify-content-center">
         <FormGroup>
@@ -77,13 +82,9 @@ const ChannelSelector = (props: { guildId: string, channels: DiscordChannel[], s
 };
 
 export const AvailableChannelSelector = connect((ISTATE: InternalState) => {
-    const guild = ISTATE.guild;
-    if (typeof guild === "undefined") {
-        return {channels: [], guildId: ''};
-    }
     return {
-        channels: guild.channels,
-        guildId: guild.instance.id,
-        selectedChannel: guild.selectedChannel
+        channels: visibleEntry(ISTATE.availableChannels).orElse(Immutable.List()),
+        guildId: optional(ISTATE.visibleGuild).orElse(''),
+        selectedChannel: visibleEntry(ISTATE.selectedChannelIds).orElse(undefined)
     };
 })(ChannelSelector);

@@ -1,13 +1,12 @@
-import {isNullOrUndefined} from "./preconditions";
+import {isDefined, isNullOrUndefined} from "./preconditions";
 
-type Maybe<S> = S | undefined | null;
 
-export interface Optional<T> {
+export interface Optional<T extends NonNullable<any>> {
     readonly value: T | never
 
     isPresent(): boolean
 
-    map<S>(mapper: (from: T) => Maybe<S>): Optional<S>
+    map<S>(mapper: (from: T) => S): Optional<NonNullable<S>>
 
     flatMap<S>(mapper: (from: T) => Optional<S>): Optional<S>
 
@@ -18,7 +17,7 @@ export interface Optional<T> {
     orMaybe<U>(other: U | null | undefined): Optional<T | U>
 }
 
-export interface PresentOptional<T> extends Optional<T> {
+export interface PresentOptional<T extends NonNullable<any>> extends Optional<T> {
     readonly value: T
 
     isPresent(): true
@@ -29,12 +28,12 @@ export interface PresentOptional<T> extends Optional<T> {
 
 }
 
-export interface AbsentOptional<T> extends Optional<T> {
+export interface AbsentOptional<T extends NonNullable<any>> extends Optional<T> {
     readonly value: never
 
     isPresent(): false
 
-    map<S>(mapper: (from: T) => Maybe<S>): AbsentOptional<S>
+    map<S>(mapper: (from: T) => S): AbsentOptional<NonNullable<S>>
 
     flatMap<S>(mapper: (from: T) => Optional<S>): AbsentOptional<S>
 
@@ -53,7 +52,7 @@ class OptionalImpl<T> implements PresentOptional<T> {
         return true;
     }
 
-    map<S>(mapper: (from: T) => Maybe<S>) {
+    map<S>(mapper: (from: T) => S) {
         const value = mapper(this.value);
         if (isNullOrUndefined(value)) {
             return emptyOptional<S>();
@@ -67,7 +66,7 @@ class OptionalImpl<T> implements PresentOptional<T> {
 
     filter(filter: (from: T) => boolean): Optional<T> {
         if (!filter(this.value)) {
-            return emptyOptional();
+            return emptyOptional<T>();
         }
         return this;
     }
@@ -90,10 +89,10 @@ const EMPTY_OPTIONAL: AbsentOptional<any> = {
         return false;
     },
     map<S>(): AbsentOptional<S> {
-        return emptyOptional();
+        return emptyOptional<S>();
     },
     flatMap<S>(): AbsentOptional<S> {
-        return emptyOptional();
+        return emptyOptional<S>();
     },
     filter() {
         return this;
@@ -106,14 +105,13 @@ const EMPTY_OPTIONAL: AbsentOptional<any> = {
     }
 };
 
-export function emptyOptional<T>(): AbsentOptional<T> {
+export function emptyOptional<T>(): AbsentOptional<NonNullable<T>> {
     return EMPTY_OPTIONAL;
 }
 
-
-export function optional<T extends {}>(value: undefined | null): AbsentOptional<T>;
-export function optional<T extends {}>(value: T): PresentOptional<T>;
-export function optional<T extends {}>(value: T | undefined | null): Optional<T>;
-export function optional<T extends {}>(value: T | undefined | null): Optional<T> {
-    return isNullOrUndefined(value) ? emptyOptional() : new OptionalImpl(value);
+export function optional<T>(value: T): Optional<NonNullable<T>> {
+    if (isDefined(value)) {
+        return new OptionalImpl(value);
+    }
+    return emptyOptional<T>();
 }

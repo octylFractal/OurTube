@@ -7,6 +7,7 @@ interface DiscordLoginData {
     // anything else is still ok
     [k: string]: any
 }
+
 export function discordLogin(hashData: DiscordLoginData) {
     const knownState = localStorage.getItem(LSConst.DISCORD_AUTH_STATE);
     if (hashData.state !== knownState) {

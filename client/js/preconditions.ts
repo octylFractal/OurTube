@@ -2,7 +2,7 @@ export function isNullOrUndefined<T>(param: T | null | undefined): param is null
     return param === null || typeof param === 'undefined';
 }
 
-export function isDefined<T>(param: T | null | undefined): param is T {
+export function isDefined<T>(param: T | null | undefined): param is NonNullable<T> {
     return !isNullOrUndefined(param);
 }
 

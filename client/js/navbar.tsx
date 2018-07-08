@@ -4,8 +4,8 @@ import 'bootstrap';
 import {Collapse, Navbar, NavbarBrand, NavbarToggler} from "reactstrap";
 import {connect} from "react-redux";
 import GuildIcon from "./components/GuildIcon";
-import {DiscordGuild} from "./reduxish/discord";
-import {InternalState, selectGuild} from "./reduxish/store";
+import {InternalState, RawGuild} from "./reduxish/stateInterfaces";
+import {selectGuild} from "./reduxish/store";
 import {optional} from "./optional";
 
 class NavbarDatum {
@@ -73,18 +73,18 @@ function deleteThisNephew() {
     selectGuild(undefined);
 }
 
-const NavGuildIcon = (props: { guild: DiscordGuild }) => {
+const NavGuildIcon = (props: { guild: RawGuild }) => {
     return <GuildIcon idPrefix="navbar" guild={props.guild}
                       onClick={props.guild === UNKNOWN_GUILD ? undefined : deleteThisNephew}/>;
 };
-const UNKNOWN_GUILD: DiscordGuild = {
+const UNKNOWN_GUILD: RawGuild = {
     id: 'fakeIdNumeroUno',
     name: '??? No Guild Selected',
     icon: null
 };
 const SelectedGuildIcon = connect((ISTATE: InternalState) => {
     return {
-        guild: optional(ISTATE.guild).map(g => g.instance).orElse(UNKNOWN_GUILD)
+        guild: optional(ISTATE.visibleGuild).map(gId => ISTATE.guilds.get(gId)).orElse(UNKNOWN_GUILD)
     };
 })(NavGuildIcon);
 
