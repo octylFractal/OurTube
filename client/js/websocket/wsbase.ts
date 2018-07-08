@@ -53,10 +53,11 @@ export class OurTubeRpc {
         cbNum++;
         this.callbackCounters.set(event, cbNum);
         const cbName = `${event}.callback${cbNum}`;
+        const trace = new Error("Tracing error for leak tracking");
 
         // prevent memory leaks
         const removeTimer = setTimeout(() => {
-            console.warn('Removing old callback for', event, 'it should be called!');
+            console.warn('Removing old callback for', event, 'it should have been called!', trace);
             this.remove(cbName);
         }, 60000);
 

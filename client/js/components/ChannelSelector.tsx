@@ -81,10 +81,10 @@ const ChannelSelector = (props: { guildId: string, channels: RawChannelArray, se
     </Form>;
 };
 
-export const AvailableChannelSelector = connect((ISTATE: InternalState) => {
+export const AvailableChannelSelector = connect((ourState: InternalState) => {
     return {
-        channels: visibleEntry(ISTATE.availableChannels).orElse(Immutable.List()),
-        guildId: optional(ISTATE.visibleGuild).orElse(''),
-        selectedChannel: visibleEntry(ISTATE.selectedChannelIds).orElse(undefined)
+        channels: visibleEntry(ourState.availableChannels).orElse(Immutable.List()),
+        guildId: optional(ourState.visibleGuild).orElse(''),
+        selectedChannel: visibleEntry(ourState.selectedChannelIds).orElse(undefined)
     };
 })(ChannelSelector);

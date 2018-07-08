@@ -1,6 +1,6 @@
 import React, {FormEvent} from "react";
 import {connect} from "react-redux";
-import {Actions, ISTATE} from "../reduxish/store";
+import {Actions, OUR_STORE} from "../reduxish/store";
 import {SongData} from "../reduxish/SongData";
 import {Button, ButtonGroup, Col, Form, FormGroup, Input, Label, Progress, Row} from 'reactstrap';
 import {getApi, SongQueuedEvent} from "../websocket/api";
@@ -81,9 +81,9 @@ const SongQueueListDisplay = (props: { guildId: string, queuedSongs: QueuedSongD
     </ul>;
 };
 
-const VolumeSlider = connect((ISTATE: InternalState) => {
+const VolumeSlider = connect((ourState: InternalState) => {
     return {
-        value: visibleEntry(ISTATE.volumes).orElse(0)
+        value: visibleEntry(ourState.volumes).orElse(0)
     };
 })(Slider);
 
@@ -93,7 +93,7 @@ interface SongControlsProps {
 
 function SongControls(props: SongControlsProps) {
     function skipCurrentSong() {
-        const currentSong = visibleEntry(ISTATE.getState().currentSongs);
+        const currentSong = visibleEntry(OUR_STORE.getState().currentSongs);
         if (!currentSong.isPresent()) {
             return;
         }
@@ -111,7 +111,7 @@ function SongControls(props: SongControlsProps) {
         }}>
             <VolumeSlider onValueSet={value => {
                 // update local volume immediately to keep state
-                ISTATE.dispatch(Actions.setVolume({
+                OUR_STORE.dispatch(Actions.setVolume({
                     guildId: props.guildId,
                     volume: value
                 }));

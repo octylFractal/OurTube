@@ -1,6 +1,7 @@
 import {OurTubeRpc} from "./wsbase";
 import {SongData} from "../reduxish/SongData";
 import {ChannelId, GuildId, QueueId, RawChannel, UserId} from "../reduxish/stateInterfaces";
+import {oStrKeys} from "../utils";
 
 export interface OurEvent {
     guildId: GuildId
@@ -13,17 +14,9 @@ export interface SongQueuedEvent extends OurEvent {
     submitterId: UserId
 }
 
-export interface SongQueuedCallback {
-    (event: SongQueuedEvent): void
-}
-
 export interface SongQueueEvent extends OurEvent {
     queueId: QueueId
     submitterId: UserId
-}
-
-export interface SongQueueEventCallback {
-    (event: SongQueueEvent): void
 }
 
 export interface SongProgressEvent extends OurEvent {
@@ -31,37 +24,26 @@ export interface SongProgressEvent extends OurEvent {
     progress: number
 }
 
-export interface SongProgressCallback {
-    (event: SongProgressEvent): void
-}
-
 export interface SongVolumeEvent extends OurEvent {
     volume: number
-}
-
-export interface SongVolumeCallback {
-    (event: SongVolumeEvent): void
-}
-
-export interface SongQueueCallbacks {
-    queued: SongQueuedCallback
-    popped: SongQueueEventCallback
-    started: SongQueueEventCallback
-    stopped: SongQueueEventCallback
-    progress: SongProgressCallback
-    volume: SongVolumeCallback
 }
 
 export interface ChannelSelectedEvent extends OurEvent {
     channelId: ChannelId | undefined
 }
 
-export interface ChannelSelectedCallback {
-    (event: ChannelSelectedEvent): void
-}
+export interface GuildCallbacks {
+    songQueued(event: SongQueuedEvent): void
 
-export interface DiscordCallbacks {
-    channelSelected: ChannelSelectedCallback
+    songSkipped(event: SongQueueEvent): void
+
+    songStarted(event: SongQueueEvent): void
+
+    songProgressed(event: SongProgressEvent): void
+
+    volumeChanged(event: SongVolumeEvent): void
+
+    channelSelected(event: ChannelSelectedEvent): void
 }
 
 interface Response<T> {
@@ -79,6 +61,21 @@ interface GoodResponse<T> extends Response<T> {
     value: T
 }
 
+const NULL_CALLBACKS: GuildCallbacks = {
+    songQueued() {
+    },
+    songSkipped() {
+    },
+    songStarted() {
+    },
+    songProgressed() {
+    },
+    volumeChanged() {
+    },
+    channelSelected() {
+    }
+};
+
 class Api {
     private rpc: OurTubeRpc;
 
@@ -86,19 +83,18 @@ class Api {
         this.rpc = websocket
     }
 
-    subscribeSongQueue(guildId: GuildId, callbacks: SongQueueCallbacks): void {
-        this.rpc.register('songQueue.queued', callbacks.queued);
-        this.rpc.register('songQueue.popped', callbacks.popped);
-        this.rpc.register('songQueue.progress', callbacks.progress);
-        this.rpc.register('songQueue.volume', callbacks.volume);
-        this.rpc.callFunction('songQueue.subscribe', guildId);
+    subscribeGuildEvents(callbacks: GuildCallbacks): void {
+        for (const key of oStrKeys(NULL_CALLBACKS)) {
+            this.rpc.register(`guildEvents.${key}`, callbacks[key]);
+        }
+        this.rpc.callFunction('guildEvents.subscribe');
     }
 
-    unsubscribeSongQueue(): void {
-        this.rpc.remove('songQueue.queued');
-        this.rpc.remove('songQueue.popped');
-        this.rpc.remove('songQueue.progress');
-        this.rpc.callFunction('songQueue.unsubscribe');
+    unsubscribeGuildEvents(): void {
+        this.rpc.callFunction('guildEvents.unsubscribe');
+        for (const key of oStrKeys(NULL_CALLBACKS)) {
+            this.rpc.remove(`guildEvents.${key}`);
+        }
     }
 
     queueSongs(guildId: string, songUrl: string): void {
@@ -150,16 +146,6 @@ class Api {
         }));
     }
 
-    subscribeDiscord(guildId: string, callbacks: DiscordCallbacks): void {
-        this.rpc.register('dis.selectedChannel', callbacks.channelSelected);
-        this.rpc.callFunction('dis.subscribe', guildId);
-    }
-
-    unsubscribeDiscord(): void {
-        this.rpc.remove('dis.selectedChannel');
-        this.rpc.callFunction('dis.unsubscribe');
-    }
-
     selectChannel(guildId: string, channelId: string | undefined | null): void {
         this.rpc.callFunction('dis.selectChannel', {
             guildId: guildId,
@@ -167,10 +153,10 @@ class Api {
         });
     }
 
-    skipSong(guildId: string, songId: string): void {
+    skipSong(guildId: string, queueId: string): void {
         this.rpc.callFunction('event.skipSong', {
             guildId: guildId,
-            songId: songId
+            queueId: queueId
         });
     }
 

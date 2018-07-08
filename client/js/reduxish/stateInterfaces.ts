@@ -5,7 +5,7 @@
 
 import {SongData} from "./SongData";
 import {Immutable} from "../utils";
-import {ISTATE} from "./store";
+import {OUR_STORE} from "./store";
 import {optional, Optional} from "../optional";
 
 export type GuildId = string;
@@ -46,7 +46,7 @@ export type RawChannelArray = Immutable.List<RawChannel>;
 export type GuildKeyed<T> = Immutable.Map<GuildId, T>;
 
 export function visibleEntry<T>(keyed: GuildKeyed<T>): Optional<NonNullable<T>> {
-    return optional(ISTATE.getState().visibleGuild)
+    return optional(OUR_STORE.getState().visibleGuild)
         .map(vg => keyed.get(vg));
 }
 

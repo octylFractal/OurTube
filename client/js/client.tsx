@@ -7,7 +7,7 @@ import React from "react";
 import {mainPage} from "./routes/mainPage";
 import {hookFields} from "./invalidateForms";
 import {Provider} from "react-redux";
-import {ISTATE} from "./reduxish/store";
+import {OUR_STORE} from "./reduxish/store";
 import queryString from "query-string";
 import {discordLogin} from "./discordLoginImport";
 import {discordInformationFromLocalStorage} from "./reduxish/discordLocalStorage";
@@ -30,7 +30,7 @@ $(() => {
     const routes = getRoutes();
     ReactDOM.render(
         <div>
-            <Provider store={ISTATE}>
+            <Provider store={OUR_STORE}>
                 <div>
                     {navbar}
                     {

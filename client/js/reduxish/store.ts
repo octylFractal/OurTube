@@ -1,8 +1,7 @@
 import {createStore, Store} from "redux";
-import {afsFactory, buildActionMap} from "./slicing";
+import {ActionForSlice, afsFactory, buildActionMap} from "./slicing";
 import {SongData} from "./SongData";
 import {
-    ChannelId,
     GuildId,
     GuildItem,
     InternalState,
@@ -16,7 +15,9 @@ import {
 } from "./stateInterfaces";
 import {observeStoreSlice} from "./reduxObservers";
 import {
+    ChannelSelectedEvent,
     getApi,
+    GuildCallbacks,
     initializeApi,
     SongProgressEvent,
     SongQueuedEvent,
@@ -42,26 +43,26 @@ const defaultState: InternalState = {
 };
 
 export async function getSongData(dataId: string): Promise<SongData> {
-    const cache = ISTATE.getState().songDataCaches;
+    const cache = OUR_STORE.getState().songDataCaches;
     let data = cache.get(dataId);
     if (data) {
         return data;
     }
     return (await getApi()).requestYoutubeSongData(dataId).then(data => {
-        ISTATE.dispatch(Actions.cacheSongData({dataId: dataId, data: data}));
+        OUR_STORE.dispatch(Actions.cacheSongData({dataId: dataId, data: data}));
         return data;
     });
 }
 
 export async function getNickname(guildId: GuildId, userId: UserId): Promise<string> {
-    const cache = ISTATE.getState().nicknameCaches;
+    const cache = OUR_STORE.getState().nicknameCaches;
     const cacheResult = optional(cache.get(guildId))
         .map(guildCache => guildCache.get(userId));
     if (cacheResult.isPresent()) {
         return cacheResult.value;
     }
     return (await getApi()).requestUserNickname(guildId, userId).then(data => {
-        ISTATE.dispatch(Actions.cacheNickname({guildId: guildId, userId: userId, nickname: data}));
+        OUR_STORE.dispatch(Actions.cacheNickname({guildId: guildId, userId: userId, nickname: data}));
         return data;
     });
 }
@@ -72,7 +73,7 @@ export function selectGuild(guildId: GuildId | undefined) {
     } else {
         localStorage.removeItem(LSConst.DISCORD_GUILD_ID);
     }
-    ISTATE.dispatch(Actions.selectGuild(guildId));
+    OUR_STORE.dispatch(Actions.selectGuild(guildId));
 }
 
 const slicer = afsFactory<InternalState>();
@@ -94,12 +95,12 @@ export const Actions = buildActionMap({
             return prevState.set(payload.guildId, payload.item);
         }),
     selectChannel: slicer.newAction('selectedChannelIds',
-        (prevState, payload: GuildItem<ChannelId>) => {
-            return prevState.set(payload.guildId, payload.item);
+        (prevState, payload: ChannelSelectedEvent) => {
+            return prevState.set(payload.guildId, payload.channelId);
         }),
     setCurrentSong: slicer.newAction('currentSongs',
         (prevState, payload: SongQueueEvent) => {
-            const startedSong = ISTATE.getState()
+            const startedSong = OUR_STORE.getState()
                 .songQueues
                 .get(payload.guildId, Immutable.Map())
                 .get(payload.submitterId, Immutable.List())
@@ -109,12 +110,12 @@ export const Actions = buildActionMap({
                 return prevState.set(payload.guildId, undefined);
             }
             // trigger a de-queue if it's found
-            ISTATE.dispatch(Actions.popSong(payload));
+            OUR_STORE.dispatch(Actions.skipSong(payload));
             return prevState.set(payload.guildId, startedSong);
         }),
     setProgress: slicer.newAction('songProgresses',
         (prevState, payload: SongProgressEvent) => {
-            const currentSong = ISTATE.getState().currentSongs.get(payload.guildId);
+            const currentSong = OUR_STORE.getState().currentSongs.get(payload.guildId);
             if (currentSong && currentSong.queueId === payload.queueId) {
                 return prevState.set(payload.queueId, payload.progress);
             }
@@ -136,7 +137,7 @@ export const Actions = buildActionMap({
                 });
             });
         }),
-    popSong: slicer.newAction('songQueues',
+    skipSong: slicer.newAction('songQueues',
         (prevState: InternalState['songQueues'], payload: SongQueueEvent) => {
             return prevState.update(payload.guildId, Immutable.Map<UserId, SongQueue>(), guildQueues => {
                 return guildQueues.update(payload.submitterId, Immutable.List<Song>(), (userQueue: SongQueue) => {
@@ -167,10 +168,22 @@ const reducer = slicer.getReducer();
 
 const reduxDevtools: (() => any) | undefined = (window as any)['__REDUX_DEVTOOLS_EXTENSION__'];
 
-export const ISTATE: Store<InternalState, OTAction<any>> = createStore(reducer, defaultState, reduxDevtools && reduxDevtools());
+export const OUR_STORE: Store<InternalState, OTAction<any>> = createStore(reducer, defaultState, reduxDevtools && reduxDevtools());
 
+function actionDispatcher<P>(actionCreator: ActionForSlice<any, P>): (payload: P) => void {
+    return payload => OUR_STORE.dispatch(actionCreator(payload));
+}
 
-observeStoreSlice(ISTATE,
+const GUILD_CALLBACKS: GuildCallbacks = {
+    songQueued: actionDispatcher(Actions.queueSong),
+    songSkipped: actionDispatcher(Actions.skipSong),
+    songStarted: actionDispatcher(Actions.setCurrentSong),
+    songProgressed: actionDispatcher(Actions.setProgress),
+    volumeChanged: actionDispatcher(Actions.setVolume),
+    channelSelected: actionDispatcher(Actions.selectChannel),
+};
+
+observeStoreSlice(OUR_STORE,
     state => state.accessToken,
     (accessToken: string | undefined) => {
         if (!accessToken) {
@@ -178,6 +191,7 @@ observeStoreSlice(ISTATE,
         }
         discordApiCall('/users/@me', accessToken, data => {
             initializeApi(accessToken, data.id);
+            getApi().then(api => api.subscribeGuildEvents(GUILD_CALLBACKS));
         });
     }
 );
@@ -191,7 +205,7 @@ export function discordApiCall(path: string, accessToken: string, callback: (dat
     }).fail((xhr, textStatus, errorThrown) => {
         if (xhr.status === 401) {
             // 401 Unauthorized, log the user out!
-            ISTATE.dispatch(Actions.setAccessToken(undefined));
+            OUR_STORE.dispatch(Actions.setAccessToken(undefined));
             return;
         }
         if (xhr.status == 429) {

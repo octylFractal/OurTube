@@ -1,10 +1,9 @@
 import {React, Route} from "./rbase";
 import DiscordLogin from "../components/DiscordLogin";
 import {connect} from "react-redux";
-import {GuildKeyed, InternalState, RawGuild} from "../reduxish/stateInterfaces";
+import {GuildKeyed, InternalState, RawGuild, visibleEntry} from "../reduxish/stateInterfaces";
 import DiscordGuildSelect from "../components/DiscordGuildSelect";
 import SongQueueManager from "../components/SongQueueManager";
-import {optional} from "../optional";
 
 type MainPageProps = { loggedIn: boolean, guild?: RawGuild, guilds: GuildKeyed<RawGuild> }
 const MainPageTree = ({loggedIn, guild, guilds}: MainPageProps) => {
@@ -19,11 +18,11 @@ const MainPageTree = ({loggedIn, guild, guilds}: MainPageProps) => {
     </div>;
 };
 
-const MainPage = connect((ISTATE: InternalState) => {
+const MainPage = connect((ourState: InternalState) => {
     return {
-        loggedIn: !!ISTATE.accessToken,
-        guild: optional(ISTATE.visibleGuild).map(gId => ISTATE.guilds.get(gId)).orElse(undefined),
-        guilds: ISTATE.guilds
+        loggedIn: !!ourState.accessToken,
+        guild: visibleEntry(ourState.guilds).orElse(undefined),
+        guilds: ourState.guilds
     }
 })(MainPageTree);
 
