@@ -39,12 +39,11 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.AuditLog.Action;
 import me.kenzierocks.ourtube.Dissy;
-import me.kenzierocks.ourtube.Events;
 import me.kenzierocks.ourtube.Log;
 import me.kenzierocks.ourtube.OurTube;
 import me.kenzierocks.ourtube.YoutubeAccess;
 import me.kenzierocks.ourtube.lava.OurTubeAudioTrack;
-import me.kenzierocks.ourtube.lava.OurTubeItemInfo;
+import me.kenzierocks.ourtube.lava.OurTubeAudioTrack.OurTubeMetadata;
 import me.kenzierocks.ourtube.lava.TrackScheduler;
 import sx.blah.discord.api.events.EventSubscriber;
 import sx.blah.discord.handle.impl.events.guild.voice.user.UserVoiceChannelJoinEvent;
@@ -55,8 +54,6 @@ public enum GuildQueue {
     INSTANCE;
 
     private static final Logger LOGGER = Log.get();
-
-    public final Events events = new Events("GuildQueue");
 
     public void queueSongs(String guildId, String userId, String songUrl) {
         Action queueSongs = AuditLog.action(userId, "guild(%s).queueSongs(%s)", guildId, songUrl)
@@ -91,7 +88,7 @@ public enum GuildQueue {
     private CompletableFuture<AudioTrack> createTrack(String id, String submitter) {
         try {
             return Dissy.loadItem("ourtube:" + OurTube.MAPPER.writeValueAsString(
-                    OurTubeItemInfo.create(id, submitter)));
+                    OurTubeMetadata.createForNow(id, submitter)));
         } catch (JsonProcessingException e) {
             CompletableFuture<AudioTrack> future = new CompletableFuture<>();
             future.completeExceptionally(e);

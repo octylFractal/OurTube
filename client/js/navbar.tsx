@@ -3,7 +3,7 @@ import $ from "jquery";
 import 'bootstrap';
 import {Collapse, Navbar, NavbarBrand, NavbarToggler} from "reactstrap";
 import {connect} from "react-redux";
-import GuildIcon from "./components/GuildIcon";
+import {GuildIcon} from "./components/GuildIcon";
 import {InternalState, RawGuild, visibleEntry} from "./reduxish/stateInterfaces";
 import {selectGuild} from "./reduxish/store";
 
@@ -83,7 +83,7 @@ const UNKNOWN_GUILD: RawGuild = {
 };
 const SelectedGuildIcon = connect((ourState: InternalState) => {
     return {
-        guild: visibleEntry(ourState.guilds).orElse(UNKNOWN_GUILD)
+        guild: visibleEntry(ourState.guilds, ourState).orElse(UNKNOWN_GUILD)
     };
 })(NavGuildIcon);
 

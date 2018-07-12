@@ -22,20 +22,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.songprogress;
+package me.kenzierocks.ourtube.events;
 
 import com.google.auto.value.AutoValue;
 
+import me.kenzierocks.ourtube.songprogress.SongProgress;
+
 @AutoValue
-public abstract class NewProgress {
-
-    public static NewProgress create(SongProgress progress) {
-        return new AutoValue_NewProgress(progress);
+public abstract class SongProgressEvent implements GuildEvent {
+    
+    public static SongProgressEvent from(String guildId, SongProgress songProgress) {
+        return create(guildId, songProgress.getQueueId(), songProgress.getProgress());
     }
 
-    NewProgress() {
+    public static SongProgressEvent create(String guildId, String queueId, double progress) {
+        return new AutoValue_SongProgressEvent(guildId, queueId, progress);
     }
 
-    public abstract SongProgress getProgress();
+    SongProgressEvent() {
+    }
+
+    public abstract String getQueueId();
+
+    public abstract double getProgress();
 
 }

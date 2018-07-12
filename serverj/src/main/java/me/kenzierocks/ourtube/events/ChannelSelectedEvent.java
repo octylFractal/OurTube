@@ -22,23 +22,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.guildchannels;
-
-import javax.annotation.Nullable;
+package me.kenzierocks.ourtube.events;
 
 import com.google.auto.value.AutoValue;
 
 @AutoValue
-public abstract class NewChannel {
+public abstract class ChannelSelectedEvent implements GuildEvent {
 
-    public static NewChannel create(@Nullable String channelId) {
-        return new AutoValue_NewChannel(channelId);
+    public static ChannelSelectedEvent create(String guildId, String channelId) {
+        return new AutoValue_ChannelSelectedEvent(guildId, channelId);
     }
 
-    NewChannel() {
+    ChannelSelectedEvent() {
     }
 
-    @Nullable
     public abstract String getChannelId();
 
 }

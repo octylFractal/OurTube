@@ -12,6 +12,26 @@ export function anyFalse(iter: Iterable<any> | any[]) {
     return !a.reduce(AND_REDUCER, true);
 }
 
+export enum CompareResult {
+    A_FIRST = -1,
+    SAME = 0,
+    B_FIRST = 1,
+}
+
+export function EXEC<T>(func: () => T): T {
+    return func();
+}
+
+export function nextEventLoop<T>(func: () => T): Promise<T> {
+    return new Promise(((resolve, reject) => {
+        try {
+            resolve(func())
+        } catch (e) {
+            reject(e);
+        }
+    }));
+}
+
 export function oKeys<T>(o: T): (keyof T)[] {
     return Object.keys(o) as (keyof T)[];
 }

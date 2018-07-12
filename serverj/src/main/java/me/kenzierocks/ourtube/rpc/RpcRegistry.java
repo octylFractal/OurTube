@@ -24,13 +24,20 @@
  */
 package me.kenzierocks.ourtube.rpc;
 
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+
 import com.google.common.eventbus.EventBus;
 
+import me.kenzierocks.ourtube.Log;
+
 public class RpcRegistry {
+
+    private static final Logger LOGGER = Log.get();
 
     private final Map<String, RpcEventHandler.Typed<Object>> functions = new ConcurrentHashMap<>();
     private final EventBus events = new EventBus("rpc-registry");
@@ -39,9 +46,20 @@ public class RpcRegistry {
         return events;
     }
 
+    private String topLevelClassName(Class<?> argsClass) {
+        LinkedList<String> names = new LinkedList<>();
+        Class<?> enc = argsClass;
+        while (enc != null) {
+            names.addFirst(enc.getSimpleName());
+            enc = enc.getEnclosingClass();
+        }
+        return String.join(".", names);
+    }
+
     public void register(String event, RpcEventHandler.Typed<?> function) {
         @SuppressWarnings("unchecked")
         RpcEventHandler.Typed<Object> ez = (RpcEventHandler.Typed<Object>) function;
+        LOGGER.info(String.format("Registering function: %s(%s)", event, topLevelClassName(function.argsClass())));
         functions.put(event, ez);
     }
 

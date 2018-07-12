@@ -22,23 +22,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.rpc;
+package me.kenzierocks.ourtube.events;
 
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.auto.value.AutoValue;
 
-import sx.blah.discord.handle.obj.IGuild;
+@AutoValue
+public abstract class SongStartedEvent implements GuildEvent {
 
-public interface RpcClient {
+    public static SongStartedEvent create(String guildId, String queueId, String submitterId) {
+        return new AutoValue_SongStartedEvent(guildId, queueId, submitterId);
+    }
 
-    String getId();
+    SongStartedEvent() {
+    }
 
-    String getUserId();
+    public abstract String getQueueId();
 
-    String getToken();
-
-    // sorted by guild ID for consistency
-    ImmutableSortedSet<IGuild> getGuilds();
-
-    void callFunction(String name, Object arguments);
+    public abstract String getSubmitterId();
 
 }

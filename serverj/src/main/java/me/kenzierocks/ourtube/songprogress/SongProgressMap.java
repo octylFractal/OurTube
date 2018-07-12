@@ -30,11 +30,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 import me.kenzierocks.ourtube.Events;
+import me.kenzierocks.ourtube.events.SongProgressEvent;
 
 public enum SongProgressMap {
     INSTANCE;
-
-    public final Events events = new Events("SongProgress");
 
     private final Map<String, SongProgress> progressMap = new ConcurrentHashMap<>();
 
@@ -45,7 +44,7 @@ public enum SongProgressMap {
 
     public void setProgress(String guildId, SongProgress progress) {
         progressMap.put(guildId, progress);
-        events.post(guildId, NewProgress.create(progress));
+        Events.OUR_EVENTS.post(guildId, SongProgressEvent.from(guildId, progress));
     }
 
 }

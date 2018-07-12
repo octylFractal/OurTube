@@ -74,6 +74,7 @@
     "url-parse": "^1.4.1"
   },
   "dependencies": {
+    "@gamestdio/websocket": "^0.2.7",
     "immutable": "^3.8.2",
     "nodent-runtime": "^3.2.1",
     "react-portal-tooltip": "^2.4.0",

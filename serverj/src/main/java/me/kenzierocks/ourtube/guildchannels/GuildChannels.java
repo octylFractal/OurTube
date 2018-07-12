@@ -33,11 +33,10 @@ import javax.annotation.Nullable;
 
 import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.Events;
+import me.kenzierocks.ourtube.events.ChannelSelectedEvent;
 
 public enum GuildChannels {
     INSTANCE;
-
-    public final Events events = new Events("GuildChannels");
 
     private final Map<String, Optional<String>> channelsMap = new ConcurrentHashMap<>();
 
@@ -53,7 +52,7 @@ public enum GuildChannels {
         Optional<String> newId = Optional.ofNullable(channelId);
         Optional<String> old = channelsMap.put(guildId, newId);
         if (!Objects.equals(newId, old)) {
-            events.post(guildId, NewChannel.create(channelId));
+            Events.OUR_EVENTS.post(guildId, ChannelSelectedEvent.create(guildId, channelId));
         }
     }
 

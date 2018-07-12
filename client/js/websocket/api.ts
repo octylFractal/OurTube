@@ -1,6 +1,6 @@
 import {OurTubeRpc} from "./wsbase";
 import {SongData} from "../reduxish/SongData";
-import {ChannelId, GuildId, QueueId, RawChannel, UserId} from "../reduxish/stateInterfaces";
+import {ChannelId, GuildId, QueueId, RawChannel, RawGuild, UserId} from "../reduxish/stateInterfaces";
 import {oStrKeys} from "../utils";
 
 export interface OurEvent {
@@ -10,7 +10,7 @@ export interface OurEvent {
 export interface SongQueuedEvent extends OurEvent {
     dataId: string
     queueId: QueueId
-    queueTime: number
+    queueTime: string
     submitterId: UserId
 }
 
@@ -32,6 +32,24 @@ export interface ChannelSelectedEvent extends OurEvent {
     channelId: ChannelId | undefined
 }
 
+export interface AvailableChannelsEvent extends OurEvent {
+    availableChannels: RawChannel[]
+}
+
+/**
+ * User joins our currently selected channel.
+ */
+export interface UserJoinChannelEvent extends OurEvent {
+    userId: UserId
+}
+
+/**
+ * User leaves our currently joined channel.
+ */
+export interface UserLeaveChannelEvent extends OurEvent {
+    userId: UserId
+}
+
 export interface GuildCallbacks {
     songQueued(event: SongQueuedEvent): void
 
@@ -43,7 +61,13 @@ export interface GuildCallbacks {
 
     volumeChanged(event: SongVolumeEvent): void
 
+    availableChannels(event: AvailableChannelsEvent): void
+
     channelSelected(event: ChannelSelectedEvent): void
+
+    userJoinChannel(event: UserJoinChannelEvent): void
+
+    userLeaveChannel(event: UserLeaveChannelEvent): void
 }
 
 interface Response<T> {
@@ -72,12 +96,18 @@ const NULL_CALLBACKS: GuildCallbacks = {
     },
     volumeChanged() {
     },
+    availableChannels() {
+    },
     channelSelected() {
-    }
+    },
+    userJoinChannel() {
+    },
+    userLeaveChannel() {
+    },
 };
 
 class Api {
-    private rpc: OurTubeRpc;
+    readonly rpc: OurTubeRpc;
 
     constructor(websocket: OurTubeRpc) {
         this.rpc = websocket
@@ -98,7 +128,7 @@ class Api {
     }
 
     queueSongs(guildId: string, songUrl: string): void {
-        this.rpc.callFunction('songQueue.queue', {
+        this.rpc.callFunction('guild.queue', {
             guildId: guildId,
             songUrl: songUrl
         });
@@ -118,9 +148,9 @@ class Api {
         });
     }
 
-    requestYoutubeSongData(songId: string): Promise<SongData> {
-        return this.responseProtoToPromise('yt.songData', cb => ({
-            songId: songId,
+    requestYoutubeSongData(dataId: string): Promise<SongData> {
+        return this.responseProtoToPromise('youtube.songData', cb => ({
+            dataId: dataId,
             callbackName: cb
         }));
     }
@@ -133,35 +163,35 @@ class Api {
         }));
     }
 
-    getMyGuilds(): Promise<GuildId[]> {
-        return this.responseProtoToPromise('dis.myGuilds', cb => ({
+    getMyGuilds(): Promise<RawGuild[]> {
+        return this.responseProtoToPromise('discord.myGuilds', cb => ({
             callbackName: cb
         }));
     }
 
     getChannels(guildId: string): Promise<RawChannel[]> {
-        return this.responseProtoToPromise('dis.channels', cb => ({
+        return this.responseProtoToPromise('guild.channels', cb => ({
             guildId: guildId,
             callbackName: cb
         }));
     }
 
     selectChannel(guildId: string, channelId: string | undefined | null): void {
-        this.rpc.callFunction('dis.selectChannel', {
+        this.rpc.callFunction('guild.selectChannel', {
             guildId: guildId,
             channelId: channelId
         });
     }
 
     skipSong(guildId: string, queueId: string): void {
-        this.rpc.callFunction('event.skipSong', {
+        this.rpc.callFunction('guild.skipSong', {
             guildId: guildId,
             queueId: queueId
         });
     }
 
     setVolume(guildId: string, volume: number): void {
-        this.rpc.callFunction('songQueue.setVolume', {
+        this.rpc.callFunction('guild.setVolume', {
             guildId: guildId,
             volume: volume
         });
@@ -172,28 +202,31 @@ class Api {
     }
 }
 
-let API: Promise<Api> | undefined = undefined;
+let API: Api | undefined = undefined;
 
-async function createApi(token: string, userId: string): Promise<Api> {
+function createApi(token: string, userId: string, readyCb: () => void): Api {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const rpc = new OurTubeRpc(
-        `${proto}://${window.location.host}/server/gateway?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`
+        `${proto}://${window.location.host}/server/gateway?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`,
+        readyCb
     );
-    await rpc.readyPromise();
     return new Api(rpc);
 }
 
-export function initializeApi(token: string, userId: string) {
-    API = createApi(token, userId);
+export function initializeApi(token: string, userId: string, readyCb: () => void) {
+    API = createApi(token, userId, readyCb);
 }
 
-export function getApi(): Promise<Api> {
+export async function getApi(): Promise<Api> {
     if (typeof API === "undefined") {
         throw new Error("API not initialized");
     }
-    return API.catch(err => {
-        console.error("Tracing error for getApi", err);
-        throw err;
-    });
+    try {
+        await API.rpc.readyPromise();
+        return API;
+    } catch (e) {
+        console.error("Tracing error for getApi", e);
+        throw e;
+    }
 }
 

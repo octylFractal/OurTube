@@ -43,8 +43,7 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
-import me.kenzierocks.ourtube.guildchannels.GuildChannels;
-import me.kenzierocks.ourtube.guildchannels.NewChannel;
+import me.kenzierocks.ourtube.events.ChannelSelectedEvent;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
 import me.kenzierocks.ourtube.lava.AudioProvider;
 import me.kenzierocks.ourtube.lava.OurTubeAudioSourceMananger;
@@ -53,16 +52,16 @@ import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.events.EventSubscriber;
 import sx.blah.discord.api.events.IListener;
+import sx.blah.discord.handle.impl.events.ReadyEvent;
 import sx.blah.discord.handle.impl.events.guild.GuildCreateEvent;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageEvent;
-import sx.blah.discord.handle.impl.events.shard.LoginEvent;
 import sx.blah.discord.handle.obj.IGuild;
 import sx.blah.discord.handle.obj.IVoiceChannel;
 
 public class Dissy {
 
     public static final IDiscordClient BOT = new ClientBuilder()
-            .withToken(Environment.DISCORD_TOKEN)
+            .withToken(Environment.DISCORD_TOKEN.get())
             .registerListener(guildSubscriber())
             .registerListener(GuildQueue.INSTANCE)
             .login();
@@ -175,8 +174,8 @@ public class Dissy {
             String guildId = guild.getStringID();
             IVoiceChannel connected = guild.getConnectedVoiceChannel();
             if (connected != null) {
-                if (!BOT.isLoggedIn()) {
-                    BOT.getDispatcher().registerTemporaryListener((LoginEvent loggedIn) -> {
+                if (!BOT.isReady()) {
+                    BOT.getDispatcher().registerTemporaryListener((ReadyEvent ready) -> {
                         connected.leave();
                     });
                 } else {
@@ -184,18 +183,18 @@ public class Dissy {
                 }
             }
             guild.getAudioManager().setAudioProvider(getProvider(guildId));
-            GuildChannels.INSTANCE.events.subscribe(guildId, new Object() {
+            Events.OUR_EVENTS.subscribe(guildId, new Object() {
 
                 @Subscribe
-                public void onNewChannel(NewChannel newChannel) {
-                    if (newChannel.getChannelId() == null) {
+                public void onNewChannel(ChannelSelectedEvent event) {
+                    if (event.getChannelId() == null) {
                         IVoiceChannel conn = guild.getConnectedVoiceChannel();
                         if (conn != null) {
                             conn.leave();
                         }
                         return;
                     }
-                    long cId = Long.parseUnsignedLong(newChannel.getChannelId());
+                    long cId = Long.parseUnsignedLong(event.getChannelId());
                     guild.getVoiceChannelByID(cId).join();
                     TrackScheduler sch = getScheduler(guildId);
                     sch.getAccessLock().lock();

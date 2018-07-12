@@ -30,6 +30,8 @@ import java.util.Map;
 import com.google.common.eventbus.EventBus;
 
 public class Events {
+    
+    public static final Events OUR_EVENTS = new Events("OurTube");
 
     private final String id;
     private final Map<String, EventBus> guildEventBuses = new HashMap<>();

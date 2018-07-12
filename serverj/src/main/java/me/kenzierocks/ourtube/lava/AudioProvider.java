@@ -30,8 +30,9 @@ import com.google.common.eventbus.Subscribe;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
 
+import me.kenzierocks.ourtube.Events;
+import me.kenzierocks.ourtube.events.SongVolumeEvent;
 import me.kenzierocks.ourtube.guildvol.GuildVolume;
-import me.kenzierocks.ourtube.guildvol.SetVolume;
 import sx.blah.discord.handle.audio.AudioEncodingType;
 import sx.blah.discord.handle.audio.IAudioProvider;
 
@@ -43,12 +44,12 @@ public class AudioProvider implements IAudioProvider {
 
     public AudioProvider(String guildId, AudioPlayer audioPlayer) {
         this.audioPlayer = audioPlayer;
-        GuildVolume.INSTANCE.events.subscribe(guildId, this);
+        Events.OUR_EVENTS.subscribe(guildId, this);
         audioPlayer.setVolume((int) GuildVolume.INSTANCE.getVolume(guildId));
     }
 
     @Subscribe
-    public void onSetVolume(SetVolume setVolume) {
+    public void onSetVolume(SongVolumeEvent setVolume) {
         audioPlayer.setVolume((int) setVolume.getVolume());
     }
 

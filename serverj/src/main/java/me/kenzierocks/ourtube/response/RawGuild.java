@@ -22,23 +22,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.rpc;
+package me.kenzierocks.ourtube.response;
 
-import com.google.common.collect.ImmutableSortedSet;
+import javax.annotation.Nullable;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import sx.blah.discord.handle.obj.IGuild;
 
-public interface RpcClient {
+public class RawGuild {
 
-    String getId();
+    public static RawGuild fromD4jGuild(IGuild guild) {
+        return new RawGuild(guild.getStringID(), guild.getName(), guild.getIcon());
+    }
 
-    String getUserId();
+    @JsonProperty
+    public final String id;
+    @JsonProperty
+    public final String name;
+    @JsonProperty
+    @Nullable
+    public final String icon;
 
-    String getToken();
-
-    // sorted by guild ID for consistency
-    ImmutableSortedSet<IGuild> getGuilds();
-
-    void callFunction(String name, Object arguments);
+    public RawGuild(String id, String name, @Nullable String icon) {
+        this.id = id;
+        this.name = name;
+        this.icon = icon;
+    }
 
 }

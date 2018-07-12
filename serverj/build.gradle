@@ -1,7 +1,7 @@
 plugins {
     id "com.github.hierynomus.license" version "0.14.0"
  	id "net.researchgate.release" version "2.7.0"
- 	id "com.techshroom.incise-blue" version "0.0.8"
+ 	id "com.techshroom.incise-blue" version "0.0.10"
 }
 
 apply plugin: 'java'
@@ -40,8 +40,6 @@ configurations.all {
             'org.apache.httpcomponents:httpclient:4.5.4',
         	'org.apache.commons:commons-lang3:3.7', 'commons-io:commons-io:2.6'
 
-     	cacheDynamicVersionsFor 10, 'minutes'
-     	// don't cache changing modules at all
      	cacheChangingModulesFor 0, 'seconds'
    	}
 }
@@ -58,18 +56,20 @@ dependencies {
     implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.10.0'
     
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:' + JACKSON
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:' + JACKSON
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-guava:' + JACKSON
 
     implementation 'com.google.api-client:google-api-client:1.23.0'
     implementation 'com.google.oauth-client:google-oauth-client-jetty:1.23.0'
     implementation 'com.google.apis:google-api-services-youtube:v3-rev189-1.23.0'
 
+    implementation group: 'com.techshroom', name: 'greenish-jungle', version: '0.0.3'
     compileOnly group: 'com.techshroom', name: 'jsr305-plus', version: '0.0.1'
 
     implementation group: 'com.google.guava', name: 'guava', version: '24.1-jre'
     aptCompileOnly group: 'com.google.auto.service', name: 'auto-service', version: '1.0-rc4'
-    compileOnly group: 'com.google.auto.value', name: 'auto-value-annotations', version: '1.6'
-    annotationProcessor group: 'com.google.auto.value', name: 'auto-value', version: '1.6'
+    aptCompileOnly group: 'com.google.auto.value', name: 'auto-value-annotations', version: autoValueVersion
+    annotationProcessor group: 'com.google.auto.value', name: 'auto-value', version: autoValueVersion
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 

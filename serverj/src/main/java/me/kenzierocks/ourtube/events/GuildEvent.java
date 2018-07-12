@@ -22,27 +22,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.lava;
+package me.kenzierocks.ourtube.events;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.auto.value.AutoValue;
+public interface GuildEvent {
 
-@AutoValue
-public abstract class OurTubeItemInfo {
-
-    @JsonCreator
-    public static OurTubeItemInfo create(
-            @JsonProperty("id") String id,
-            @JsonProperty("submitter") String submitter) {
-        return new AutoValue_OurTubeItemInfo(id, submitter);
-    }
-
-    OurTubeItemInfo() {
-    }
-
-    public abstract String getId();
-
-    public abstract String getSubmitter();
+    String getGuildId();
 
 }

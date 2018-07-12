@@ -83,8 +83,8 @@ const ChannelSelector = (props: { guildId: string, channels: RawChannelArray, se
 
 export const AvailableChannelSelector = connect((ourState: InternalState) => {
     return {
-        channels: visibleEntry(ourState.availableChannels).orElse(Immutable.List()),
+        channels: visibleEntry(ourState.availableChannels, ourState).orElse(Immutable.List()),
         guildId: optional(ourState.visibleGuild).orElse(''),
-        selectedChannel: visibleEntry(ourState.selectedChannelIds).orElse(undefined)
+        selectedChannel: visibleEntry(ourState.selectedChannelIds, ourState).orElse(undefined)
     };
 })(ChannelSelector);

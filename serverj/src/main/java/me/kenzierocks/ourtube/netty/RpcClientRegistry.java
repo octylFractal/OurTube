@@ -30,32 +30,30 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.google.common.collect.ImmutableSortedSet;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import me.kenzierocks.ourtube.OurTube;
 import me.kenzierocks.ourtube.rpc.RpcClient;
 import me.kenzierocks.ourtube.rpc.RpcClientImpl;
+import sx.blah.discord.handle.obj.IGuild;
 
 public class RpcClientRegistry {
 
     private final Map<Channel, RpcClient> clientCache = new ConcurrentHashMap<>();
 
-    private final ObjectMapper mapper = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
-
-    public void register(Channel channel, String userId, String token) {
+    public void register(Channel channel, String userId, String token, ImmutableSortedSet<IGuild> guilds) {
         clientCache.put(channel, RpcClientImpl.builder()
                 .id(channel.id().asLongText())
                 .userId(userId)
                 .token(token)
+                .guilds(guilds)
                 .callFunction(call -> {
                     String callJson;
                     try {
-                        callJson = mapper.writeValueAsString(call);
+                        callJson = OurTube.MAPPER.writeValueAsString(call);
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }

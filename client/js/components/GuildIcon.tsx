@@ -2,7 +2,8 @@ import React from "react";
 import {RawGuild} from "../reduxish/stateInterfaces";
 import {StatefulToolTip} from "react-portal-tooltip";
 
-export default (props: { idPrefix: string, guild: RawGuild, onClick?: () => void }) => {
+type GuildIconProps = { idPrefix: string, guild: RawGuild, onClick?: () => void };
+export const GuildIcon: React.StatelessComponent<GuildIconProps> = function GuildIcon(props) {
     const g = props.guild;
     const iconElement = (g.icon
         ? <img className="w-100 rounded-circle"

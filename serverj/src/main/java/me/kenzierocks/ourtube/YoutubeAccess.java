@@ -114,7 +114,7 @@ public enum YoutubeAccess {
         return AsyncService.GENERIC.submit(() -> {
             VideoListResponse ytResponse = yt3.videos().list("snippet,contentDetails")
                     .setId(songId)
-                    .setKey(Environment.YOUTUBE_API_KEY)
+                    .setKey(Environment.YOUTUBE_API_KEY.get())
                     .execute();
             if (ytResponse.getItems().isEmpty()) {
                 LOGGER.warn("Missing video info for item '{}'", songId);
@@ -202,7 +202,7 @@ public enum YoutubeAccess {
         while (pageToken != null) {
             PlaylistItems.List itemRequest = yt3.playlistItems().list("contentDetails")
                     .setPlaylistId(list)
-                    .setKey(Environment.YOUTUBE_API_KEY)
+                    .setKey(Environment.YOUTUBE_API_KEY.get())
                     .setMaxResults(50L);
             if (!pageToken.isEmpty()) {
                 itemRequest.setPageToken(pageToken);

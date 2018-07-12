@@ -22,20 +22,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.guildvol;
+package me.kenzierocks.ourtube.events;
 
 import com.google.auto.value.AutoValue;
 
 @AutoValue
-public abstract class SetVolume {
+public abstract class SongSkippedEvent implements GuildEvent {
 
-    public static SetVolume create(float volume) {
-        return new AutoValue_SetVolume(volume);
+    public static SongSkippedEvent create(String guildId, String queueId, String submitterId) {
+        return new AutoValue_SongSkippedEvent(guildId, queueId, submitterId);
     }
 
-    SetVolume() {
+    SongSkippedEvent() {
     }
 
-    public abstract float getVolume();
+    public abstract String getQueueId();
+
+    public abstract String getSubmitterId();
 
 }

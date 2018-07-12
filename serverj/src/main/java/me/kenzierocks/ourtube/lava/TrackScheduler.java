@@ -45,10 +45,10 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import me.kenzierocks.ourtube.AsyncService;
 import me.kenzierocks.ourtube.AudioUpdatesTask;
 import me.kenzierocks.ourtube.Dissy;
+import me.kenzierocks.ourtube.Events;
 import me.kenzierocks.ourtube.Log;
-import me.kenzierocks.ourtube.guildqueue.GuildQueue;
-import me.kenzierocks.ourtube.guildqueue.PopSong;
-import me.kenzierocks.ourtube.guildqueue.PushSong;
+import me.kenzierocks.ourtube.events.SongQueuedEvent;
+import me.kenzierocks.ourtube.events.SongSkippedEvent;
 import sx.blah.discord.handle.obj.IVoiceChannel;
 
 public class TrackScheduler extends AudioEventAdapter {
@@ -117,14 +117,9 @@ public class TrackScheduler extends AudioEventAdapter {
     public void addTrack(String userId, AudioTrack track) {
         accessLock.lock();
         try {
-            LOGGER.debug("Queued track " + track.getIdentifier());
             getQueue(userId).add(track);
-            OurTubeAudioTrack.cast(track)
-                    .map(otat -> otat.getIdentifier())
-                    .ifPresent(songId -> {
-                        String nick = Dissy.getNicknameForUserInGuild(guildId, userId);
-                        GuildQueue.INSTANCE.events.post(guildId, PushSong.create(songId, nick));
-                    });
+            SongQueuedEvent.fromTrack(guildId, track)
+                    .ifPresent(event -> Events.OUR_EVENTS.post(guildId, event));
             nextTrack(true);
         } finally {
             accessLock.unlock();
@@ -177,9 +172,8 @@ public class TrackScheduler extends AudioEventAdapter {
         accessLock.lock();
         try {
             OurTubeAudioTrack.cast(track)
-                    .map(otat -> otat.getIdentifier())
-                    .ifPresent(songId -> {
-                        GuildQueue.INSTANCE.events.post(guildId, PopSong.create(songId));
+                    .ifPresent(otat -> {
+                        Events.OUR_EVENTS.post(guildId, SongSkippedEvent.create(guildId, otat.getIdentifier(), otat.getMetadata().submitter()));
                     });
             if (endReason.mayStartNext) {
                 nextTrack(false);

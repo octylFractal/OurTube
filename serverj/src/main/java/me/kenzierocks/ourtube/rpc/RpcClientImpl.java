@@ -27,6 +27,9 @@ package me.kenzierocks.ourtube.rpc;
 import java.util.function.Consumer;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableSortedSet;
+
+import sx.blah.discord.handle.obj.IGuild;
 
 @AutoValue
 public abstract class RpcClientImpl implements RpcClient {
@@ -43,6 +46,8 @@ public abstract class RpcClientImpl implements RpcClient {
         Builder userId(String userId);
 
         Builder token(String token);
+
+        Builder guilds(ImmutableSortedSet<IGuild> guilds);
 
         Builder callFunction(Consumer<RpcCall<Object>> callFunction);
 

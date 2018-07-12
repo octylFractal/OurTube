@@ -39,6 +39,8 @@ import java.util.Optional;
 import javax.sound.sampled.AudioFormat.Encoding;
 import javax.sound.sampled.AudioInputStream;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Comparators;
 import com.sedmelluq.discord.lavaplayer.filter.AudioPipeline;
@@ -73,19 +75,28 @@ public class OurTubeAudioTrack extends BaseAudioTrack {
     @AutoValue
     public abstract static class OurTubeMetadata {
 
-        public static OurTubeMetadata createForNow(String submitter) {
-            return create(submitter, Instant.now());
+        public static OurTubeMetadata createForNow(String dataId, String submitter) {
+            return create(dataId, submitter, Instant.now());
         }
 
-        public static OurTubeMetadata create(String submitter, Instant queueTime) {
-            return new AutoValue_OurTubeAudioTrack_OurTubeMetadata(submitter, queueTime);
+        @JsonCreator
+        public static OurTubeMetadata create(
+                @JsonProperty("dataId") String dataId,
+                @JsonProperty("submitter") String submitter,
+                @JsonProperty("queueTime") Instant queueTime) {
+            return new AutoValue_OurTubeAudioTrack_OurTubeMetadata(dataId, submitter, queueTime);
         }
 
         OurTubeMetadata() {
         }
 
+        @JsonProperty("dataId")
+        public abstract String dataId();
+
+        @JsonProperty("submitter")
         public abstract String submitter();
 
+        @JsonProperty("queueTime")
         public abstract Instant queueTime();
 
     }

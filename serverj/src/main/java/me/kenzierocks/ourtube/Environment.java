@@ -24,17 +24,23 @@
  */
 package me.kenzierocks.ourtube;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.techshroom.jungle.EnvConfigOption;
+import com.techshroom.jungle.Loaders;
 
 // worlds worst env class
 public class Environment {
 
-    public static final String YOUTUBE_API_KEY = System.getenv("YOUTUBE_API_KEY");
-    public static final String DISCORD_TOKEN = System.getenv("DISCORD_TOKEN");
-    public static final boolean INTERNAL_STREAMS_ERROR_OUTPUT = Boolean.valueOf(System.getenv("INTERNAL_STREAMS_ERROR_OUTPUT"));
+    public static final EnvConfigOption<String> YOUTUBE_API_KEY =
+            EnvConfigOption.create("YOUTUBE_API_KEY", Loaders.forString(), "");
+    public static final EnvConfigOption<String> DISCORD_TOKEN =
+            EnvConfigOption.create("DISCORD_TOKEN", Loaders.forString(), "");
+    public static final EnvConfigOption<Boolean> INTERNAL_STREAMS_ERROR_OUTPUT =
+            EnvConfigOption.create("INTERNAL_STREAMS_ERROR_OUTPUT", Loaders.forBoolean(), Boolean.FALSE);
     static {
-        checkNotNull(YOUTUBE_API_KEY, "No YOUTUBE_API_KEY provided.");
-        checkNotNull(DISCORD_TOKEN, "No DISCORD_TOKEN provided.");
+        checkState(YOUTUBE_API_KEY.get().length() > 0, "No YOUTUBE_API_KEY provided.");
+        checkState(DISCORD_TOKEN.get().length() > 0, "No DISCORD_TOKEN provided.");
     }
 
 }

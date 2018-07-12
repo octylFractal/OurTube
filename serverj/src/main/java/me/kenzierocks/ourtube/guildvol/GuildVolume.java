@@ -30,13 +30,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.Events;
+import me.kenzierocks.ourtube.events.SongVolumeEvent;
 
 public enum GuildVolume {
     INSTANCE;
 
     public static final float DEFAULT_VOLUME = 30f;
-
-    public final Events events = new Events("GuildVolume");
 
     private final Map<String, Float> volumeMap = new ConcurrentHashMap<>();
 
@@ -50,7 +49,7 @@ public enum GuildVolume {
                 .attempted().performed();
         Float old = volumeMap.put(guildId, volume);
         if (!Objects.equals(volume, old)) {
-            events.post(guildId, SetVolume.create(volume));
+            Events.OUR_EVENTS.post(guildId, SongVolumeEvent.create(guildId, volume));
         }
     }
 

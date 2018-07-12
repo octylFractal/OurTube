@@ -27,11 +27,13 @@ package me.kenzierocks.ourtube.netty;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 
@@ -43,16 +45,22 @@ import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.HandshakeComplete;
 import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.AuditLog.Action;
+import me.kenzierocks.ourtube.Dissy;
 import me.kenzierocks.ourtube.rpc.RpcDisconnect;
 import me.kenzierocks.ourtube.rpc.RpcHelper;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import sx.blah.discord.handle.obj.IGuild;
+import sx.blah.discord.handle.obj.IIDLinkedObject;
 
 public class WebSocketAuthenticationHandler extends ChannelDuplexHandler {
 
     private static final String TOKEN = "token";
+
+    private static final Comparator<IIDLinkedObject> ID_COMPARATOR = Comparator
+            .comparing(IIDLinkedObject::getLongID, Long::compareUnsigned);
 
     private final OkHttpClient http = new OkHttpClient.Builder()
             .connectionPool(new ConnectionPool(10, 10, TimeUnit.MINUTES))
@@ -98,7 +106,12 @@ public class WebSocketAuthenticationHandler extends ChannelDuplexHandler {
                 return;
             }
 
-            clients.register(ctx.channel(), userId, token);
+            // find guilds the user is in
+            ImmutableSortedSet<IGuild> guilds = Dissy.BOT.getGuilds().stream()
+                    .filter(guild -> guild.getUsers().stream().anyMatch(user -> user.getStringID().equals(userId)))
+                    .collect(ImmutableSortedSet.toImmutableSortedSet(ID_COMPARATOR));
+
+            clients.register(ctx.channel(), userId, token, guilds);
             connect.performed();
         }
         super.userEventTriggered(ctx, evt);

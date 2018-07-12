@@ -29,13 +29,14 @@ import org.slf4j.Logger;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 
 public class OurTube {
 
     public static final ObjectMapper MAPPER = new ObjectMapper()
-            .registerModules(new Jdk8Module(), new GuavaModule());
+            .registerModules(new Jdk8Module(), new JavaTimeModule(), new GuavaModule());
 
     private static final Logger LOGGER = Log.get();
 

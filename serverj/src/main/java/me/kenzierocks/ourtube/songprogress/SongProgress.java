@@ -36,7 +36,7 @@ public abstract class SongProgress {
     SongProgress() {
     }
 
-    public abstract String getSongId();
+    public abstract String getQueueId();
 
     public abstract double getProgress();
 

@@ -22,20 +22,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.guildqueue;
+package me.kenzierocks.ourtube.response;
 
-import com.google.auto.value.AutoValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@AutoValue
-public abstract class PopSong {
+import sx.blah.discord.handle.obj.IVoiceChannel;
 
-    public static PopSong create(String songId) {
-        return new AutoValue_PopSong(songId);
+public class RawChannel {
+    
+    public static RawChannel fromD4jChannel(IVoiceChannel channel) {
+        return new RawChannel(channel.getStringID(), channel.getName());
     }
 
-    PopSong() {
-    }
+    @JsonProperty
+    public final String id;
+    @JsonProperty
+    public final String name;
 
-    public abstract String getSongId();
+    public RawChannel(String id, String name) {
+        this.id = id;
+        this.name = name;
+    }
 
 }

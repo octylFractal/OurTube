@@ -59,15 +59,15 @@ public class OurTubeAudioSourceMananger implements AudioSourceManager {
         if (!reference.identifier.startsWith("ourtube:")) {
             return null;
         }
-        OurTubeItemInfo info;
+        OurTubeMetadata md;
         try {
-            info = OurTube.MAPPER.readValue(reference.identifier.substring("ourtube:".length()), OurTubeItemInfo.class);
+            md = OurTube.MAPPER.readValue(reference.identifier.substring("ourtube:".length()), OurTubeMetadata.class);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
         SongData data;
         try {
-            data = YoutubeAccess.INSTANCE.getVideoDataCached(info.getId()).get();
+            data = YoutubeAccess.INSTANCE.getVideoDataCached(md.dataId()).get();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } catch (ExecutionException e) {
@@ -76,8 +76,7 @@ public class OurTubeAudioSourceMananger implements AudioSourceManager {
             throw new RuntimeException(t);
         }
         InputStream stream = new LazyInputStream(() -> YoutubeStreams.newStream(data));
-        OurTubeMetadata meta = OurTubeMetadata.createForNow(info.getSubmitter());
-        return new OurTubeAudioTrack(createTrackInfo(data), meta, YoutubeStreams.annotateStream(data, stream));
+        return new OurTubeAudioTrack(createTrackInfo(data), md, YoutubeStreams.annotateStream(data, stream));
     }
 
     private AudioTrackInfo createTrackInfo(SongData data) {

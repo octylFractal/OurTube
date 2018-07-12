@@ -169,7 +169,7 @@ public class YoutubeStreams {
             // copy in error stream so we can dump it on error
             InputStream buffered = new BufferedInputStream(process.getErrorStream());
             ByteArrayOutputStream cap = new ByteArrayOutputStream();
-            if (Environment.INTERNAL_STREAMS_ERROR_OUTPUT) {
+            if (Environment.INTERNAL_STREAMS_ERROR_OUTPUT.get()) {
                 byte[] buf = new byte[8192];
                 int read;
                 while ((read = buffered.read(buf)) != -1) {

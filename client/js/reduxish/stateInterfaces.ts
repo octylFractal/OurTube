@@ -45,14 +45,9 @@ export type RawChannelArray = Immutable.List<RawChannel>;
 
 export type GuildKeyed<T> = Immutable.Map<GuildId, T>;
 
-export function visibleEntry<T>(keyed: GuildKeyed<T>): Optional<NonNullable<T>> {
-    return optional(OUR_STORE.getState().visibleGuild)
+export function visibleEntry<T>(keyed: GuildKeyed<T>, state: InternalState): Optional<NonNullable<T>> {
+    return optional(state.visibleGuild)
         .map(vg => keyed.get(vg));
-}
-
-export interface GuildItem<I> {
-    readonly guildId: GuildId
-    readonly item: I
 }
 
 export type UserSongQueues = Immutable.Map<UserId, SongQueue>;
@@ -84,11 +79,15 @@ export interface InternalState {
     /**
      * Channels for each guild.
      */
-    availableChannels: GuildKeyed<RawChannelArray>
+    availableChannels: GuildKeyed<RawChannelArray | undefined>
     /**
      * Selected channel for each guild.
      */
     selectedChannelIds: GuildKeyed<ChannelId | undefined>
+    /**
+     * Users in our selected channel.
+     */
+    usersInChannels: GuildKeyed<Immutable.Set<UserId> | undefined>
     /**
      * Song playing in the guild, if any.
      */
@@ -104,17 +103,17 @@ export interface InternalState {
     /**
      * Queues for each user currently in voice chat.
      */
-    songQueues: GuildKeyed<UserSongQueues>
+    songQueues: GuildKeyed<UserSongQueues | undefined>
     /**
      * Raw guilds that we know about.
      */
-    guilds: GuildKeyed<RawGuild>
+    guilds: GuildKeyed<RawGuild | undefined>
     /**
      * Nickname cache for guild members.
      */
-    nicknameCaches: GuildKeyed<GuildNickCache>
+    nicknameCaches: GuildKeyed<GuildNickCache | undefined>
     /**
      * Song data cache. Data is pulled via the server.
      */
-    songDataCaches: Immutable.Map<string, SongData>
+    songDataCaches: Immutable.Map<string, SongData | undefined>
 }

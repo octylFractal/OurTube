@@ -22,22 +22,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package me.kenzierocks.ourtube.guildqueue;
+package me.kenzierocks.ourtube.events;
+
+import java.util.Collection;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+
+import me.kenzierocks.ourtube.response.RawChannel;
 
 @AutoValue
-public abstract class PushSong {
+public abstract class AvailableChannelsEvent implements GuildEvent {
 
-    public static PushSong create(String songId, String submitter) {
-        return new AutoValue_PushSong(songId, submitter);
+    public static AvailableChannelsEvent create(String guildId, Collection<RawChannel> availableChannels) {
+        return new AutoValue_AvailableChannelsEvent(guildId, ImmutableList.copyOf(availableChannels));
     }
 
-    PushSong() {
+    AvailableChannelsEvent() {
     }
 
-    public abstract String getYoutubeId();
-
-    public abstract String getSubmitter();
+    public abstract ImmutableList<RawChannel> getAvailableChannels();
 
 }

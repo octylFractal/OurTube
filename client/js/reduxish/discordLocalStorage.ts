@@ -1,4 +1,3 @@
-import {GuildKeyed, RawGuild} from "./stateInterfaces";
 import {Actions, OUR_STORE} from "./store";
 import {observeStoreSlice} from "./reduxObservers";
 import {LSConst} from "../lsConst";
@@ -9,7 +8,7 @@ export function discordInformationFromLocalStorage() {
     if (authToken) {
         OUR_STORE.dispatch(Actions.setAccessToken(authToken));
     }
-    observeStoreSlice(OUR_STORE, state => state.guilds, (guilds: GuildKeyed<RawGuild>) => {
+    observeStoreSlice(OUR_STORE, state => state.guilds, guilds => {
         const guild = localStorage.getItem(LSConst.DISCORD_GUILD_ID);
         if (guild && guilds && !OUR_STORE.getState().visibleGuild) {
             // select it if none selected and guild is present

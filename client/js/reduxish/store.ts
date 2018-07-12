@@ -1,12 +1,10 @@
-import {createStore, Store} from "redux";
+import {createStore, Reducer, Store} from "redux";
 import {ActionForSlice, afsFactory, buildActionMap} from "./slicing";
 import {SongData} from "./SongData";
 import {
     GuildId,
-    GuildItem,
     InternalState,
     NicknameRecord,
-    RawChannelArray,
     RawGuild,
     Song,
     SongDataRecord,
@@ -15,6 +13,7 @@ import {
 } from "./stateInterfaces";
 import {observeStoreSlice} from "./reduxObservers";
 import {
+    AvailableChannelsEvent,
     ChannelSelectedEvent,
     getApi,
     GuildCallbacks,
@@ -22,17 +21,20 @@ import {
     SongProgressEvent,
     SongQueuedEvent,
     SongQueueEvent,
-    SongVolumeEvent
+    SongVolumeEvent,
+    UserJoinChannelEvent
 } from "../websocket/api";
 import {LSConst} from "../lsConst";
 import {optional} from "../optional";
 import {Immutable} from "../utils";
 import {checkNotNull} from "../preconditions";
 import {OTAction} from "./actionCreators";
+import $ from "jquery";
 
 const defaultState: InternalState = {
     availableChannels: Immutable.Map(),
     selectedChannelIds: Immutable.Map(),
+    usersInChannels: Immutable.Map(),
     currentSongs: Immutable.Map(),
     songProgresses: Immutable.Map(),
     volumes: Immutable.Map(),
@@ -85,38 +87,59 @@ export const Actions = buildActionMap({
         }),
     selectGuild: slicer.newAction('visibleGuild',
         (prevState, payload: GuildId | undefined, fullPrevState) => {
-            if (!fullPrevState.guilds.some((g, gId) => gId === payload)) {
+            if (payload && !fullPrevState.guilds.some((g, gId) => gId === payload)) {
                 return prevState;
             }
             return payload;
         }),
     setChannels: slicer.newAction('availableChannels',
-        (prevState, payload: GuildItem<RawChannelArray>) => {
-            return prevState.set(payload.guildId, payload.item);
+        (prevState, payload: AvailableChannelsEvent) => {
+            return prevState.set(payload.guildId, Immutable.List(payload.availableChannels));
         }),
     selectChannel: slicer.newAction('selectedChannelIds',
         (prevState, payload: ChannelSelectedEvent) => {
             return prevState.set(payload.guildId, payload.channelId);
         }),
+    addUserInChannel: slicer.newAction('usersInChannels',
+        (prevState, payload: UserJoinChannelEvent) => {
+            return prevState.update(payload.guildId, Immutable.Set(), usersInChannel => {
+                return checkNotNull(usersInChannel).add(payload.userId);
+            });
+        }),
+    removeUserInChannel: slicer.newAction('usersInChannels',
+        (prevState, payload: UserJoinChannelEvent) => {
+            return prevState.update(payload.guildId, Immutable.Set(), usersInChannel => {
+                return checkNotNull(usersInChannel).remove(payload.userId);
+            });
+        }),
+    clearUsersInChannel: slicer.newAction('usersInChannels',
+        (prevState, payload: GuildId) => {
+            return prevState.update(payload, usersInChannel => {
+                if (usersInChannel) {
+                    return usersInChannel.clear();
+                }
+                return usersInChannel;
+            });
+        }),
     setCurrentSong: slicer.newAction('currentSongs',
-        (prevState, payload: SongQueueEvent) => {
-            const startedSong = OUR_STORE.getState()
-                .songQueues
-                .get(payload.guildId, Immutable.Map())
-                .get(payload.submitterId, Immutable.List())
-                .filter(song => checkNotNull(song).queueId === payload.queueId)
-                .first();
+        (prevState, payload: SongQueueEvent, fullState) => {
+            const startedSong: Song | undefined = optional(fullState.songQueues
+                .get(payload.guildId, Immutable.Map()))
+                .map(guildQueue => guildQueue.get(payload.submitterId, Immutable.List()))
+                .map(submitterQueue => submitterQueue
+                    .filter(song => checkNotNull(song).queueId === payload.queueId)
+                    .first())
+                .orElse(undefined);
             if (!startedSong) {
                 return prevState.set(payload.guildId, undefined);
             }
-            // trigger a de-queue if it's found
-            OUR_STORE.dispatch(Actions.skipSong(payload));
             return prevState.set(payload.guildId, startedSong);
         }),
     setProgress: slicer.newAction('songProgresses',
-        (prevState, payload: SongProgressEvent) => {
-            const currentSong = OUR_STORE.getState().currentSongs.get(payload.guildId);
-            if (currentSong && currentSong.queueId === payload.queueId) {
+        (prevState, payload: SongProgressEvent, fullState) => {
+            const currentProgressSong = optional(fullState.currentSongs.get(payload.guildId))
+                .filter(song => song.queueId === payload.queueId);
+            if (currentProgressSong.isPresent()) {
                 return prevState.set(payload.queueId, payload.progress);
             }
             return prevState;
@@ -128,7 +151,7 @@ export const Actions = buildActionMap({
     queueSong: slicer.newAction('songQueues',
         (prevState: InternalState['songQueues'], payload: SongQueuedEvent) => {
             return prevState.update(payload.guildId, Immutable.Map<UserId, SongQueue>(), guildQueues => {
-                return guildQueues.update(payload.submitterId, Immutable.List<Song>(), userQueue => {
+                return checkNotNull(guildQueues).update(payload.submitterId, Immutable.List<Song>(), userQueue => {
                     return userQueue.push({
                         queueId: payload.queueId,
                         queueTime: new Date(payload.queueTime),
@@ -140,7 +163,7 @@ export const Actions = buildActionMap({
     skipSong: slicer.newAction('songQueues',
         (prevState: InternalState['songQueues'], payload: SongQueueEvent) => {
             return prevState.update(payload.guildId, Immutable.Map<UserId, SongQueue>(), guildQueues => {
-                return guildQueues.update(payload.submitterId, Immutable.List<Song>(), (userQueue: SongQueue) => {
+                return checkNotNull(guildQueues).update(payload.submitterId, Immutable.List<Song>(), (userQueue: SongQueue) => {
                     return userQueue.filter(song => checkNotNull(song).queueId !== payload.queueId).toList();
                 });
             });
@@ -155,7 +178,7 @@ export const Actions = buildActionMap({
     cacheNickname: slicer.newAction('nicknameCaches',
         (prevState, payload: NicknameRecord) => {
             return prevState.update(payload.guildId, Immutable.Map(), guildCache => {
-                return guildCache.set(payload.userId, payload.nickname);
+                return checkNotNull(guildCache).set(payload.userId, payload.nickname);
             });
         }),
     cacheSongData: slicer.newAction('songDataCaches',
@@ -164,15 +187,30 @@ export const Actions = buildActionMap({
         }),
 });
 
-const reducer = slicer.getReducer();
+const sliceReducers = slicer.getReducer();
+
+export enum SpecialActions {
+    SET_STATE = 'SET_STATE'
+}
+
+const primaryReducer: Reducer<InternalState, OTAction<any>> = (state, action) => {
+    switch (action.type) {
+        case SpecialActions.SET_STATE:
+            return action.payload as InternalState;
+    }
+    return sliceReducers(state, action);
+};
 
 const reduxDevtools: (() => any) | undefined = (window as any)['__REDUX_DEVTOOLS_EXTENSION__'];
 
-export const OUR_STORE: Store<InternalState, OTAction<any>> = createStore(reducer, defaultState, reduxDevtools && reduxDevtools());
+export const OUR_STORE: Store<InternalState, OTAction<any>> = createStore(primaryReducer, defaultState, reduxDevtools && reduxDevtools());
 
 function actionDispatcher<P>(actionCreator: ActionForSlice<any, P>): (payload: P) => void {
     return payload => OUR_STORE.dispatch(actionCreator(payload));
 }
+
+const selectChannelDispatch = actionDispatcher(Actions.selectChannel);
+const clearUsersInChannelDispatch = actionDispatcher(Actions.clearUsersInChannel);
 
 const GUILD_CALLBACKS: GuildCallbacks = {
     songQueued: actionDispatcher(Actions.queueSong),
@@ -180,8 +218,31 @@ const GUILD_CALLBACKS: GuildCallbacks = {
     songStarted: actionDispatcher(Actions.setCurrentSong),
     songProgressed: actionDispatcher(Actions.setProgress),
     volumeChanged: actionDispatcher(Actions.setVolume),
-    channelSelected: actionDispatcher(Actions.selectChannel),
+    availableChannels: actionDispatcher(Actions.setChannels),
+    channelSelected: event => {
+        clearUsersInChannelDispatch(event.guildId);
+        selectChannelDispatch(event);
+    },
+    userJoinChannel: actionDispatcher(Actions.addUserInChannel),
+    userLeaveChannel: actionDispatcher(Actions.removeUserInChannel),
 };
+
+async function initializeApiConnection() {
+    // immediately reset store so we start clean
+    const currentState = OUR_STORE.getState();
+    OUR_STORE.dispatch({
+        payload: {
+            ...defaultState,
+            accessToken: currentState.accessToken,
+            visibleGuild: currentState.visibleGuild
+        },
+        type: SpecialActions.SET_STATE
+    });
+    const api = await getApi();
+    const guilds = await api.getMyGuilds();
+    OUR_STORE.dispatch(Actions.setGuilds(guilds));
+    api.subscribeGuildEvents(GUILD_CALLBACKS);
+}
 
 observeStoreSlice(OUR_STORE,
     state => state.accessToken,
@@ -190,8 +251,10 @@ observeStoreSlice(OUR_STORE,
             return;
         }
         discordApiCall('/users/@me', accessToken, data => {
-            initializeApi(accessToken, data.id);
-            getApi().then(api => api.subscribeGuildEvents(GUILD_CALLBACKS));
+            initializeApi(accessToken, data.id, () => {
+                initializeApiConnection()
+                    .catch(err => console.error("Error initializing connection", err));
+            });
         });
     }
 );
