@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -e
 pushd serverj
-echo 'server: gradle build'; ./gradlew clean && ./gradlew build
-echo 'server: unpack archive to build/latest'; unar -o build/latest/ build/distributions/*.zip
+echo 'server: gradle install'; ./gradlew install
 popd
 pushd client
 echo 'client: npm install'; npm i
