@@ -149,10 +149,10 @@ public class Dissy {
         return audioTrack;
     }
 
-    public static String getNicknameForUserInGuild(String guildId, String userId) {
+    public static String getNameForUserInGuild(String guildId, String userId) {
         IGuild guild = BOT.getGuildByID(Long.parseUnsignedLong(guildId));
         return guild.getUserByID(Long.parseUnsignedLong(userId))
-                .getNicknameForGuild(guild);
+                .getDisplayName(guild);
     }
 
     static {

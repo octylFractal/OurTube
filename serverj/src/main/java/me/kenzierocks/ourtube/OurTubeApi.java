@@ -139,7 +139,7 @@ public class OurTubeApi {
                     .map(Optional::get)
                     .map(ot -> {
                         String submitter = ot.getMetadata().submitter();
-                        String nick = Dissy.getNicknameForUserInGuild(guildId, submitter);
+                        String nick = Dissy.getNameForUserInGuild(guildId, submitter);
                         return PushSong.create(ot.getIdentifier(), nick);
                     })
                     .forEach(subs::onPush);

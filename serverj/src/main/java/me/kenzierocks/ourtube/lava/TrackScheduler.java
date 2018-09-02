@@ -122,7 +122,7 @@ public class TrackScheduler extends AudioEventAdapter {
             OurTubeAudioTrack.cast(track)
                     .map(otat -> otat.getIdentifier())
                     .ifPresent(songId -> {
-                        String nick = Dissy.getNicknameForUserInGuild(guildId, userId);
+                        String nick = Dissy.getNameForUserInGuild(guildId, userId);
                         GuildQueue.INSTANCE.events.post(guildId, PushSong.create(songId, nick));
                     });
             nextTrack(true);
