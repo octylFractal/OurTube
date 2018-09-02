@@ -154,6 +154,9 @@ public enum YoutubeAccess {
             LOGGER.debug("Bad song URL provided", e);
             return ImmutableList.of();
         }
+        if (url.getHost() == null) {
+            return ImmutableList.of();
+        }
         if (url.getHost().endsWith("youtube.com")) {
             QueryStringDecoder decoder = new QueryStringDecoder(url);
             switch (url.getPath()) {

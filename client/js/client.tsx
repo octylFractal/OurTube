@@ -5,7 +5,7 @@ import ReactDOM from "react-dom";
 import {Route, Router} from "./router/router";
 import React from "react";
 import {mainPage} from "./routes/mainPage";
-import {hookFields} from "./invaildateforms";
+import {hookFields} from "./invalidateForms";
 import {Provider} from "react-redux";
 import {ISTATE} from "./reduxish/store";
 import queryString from "query-string";

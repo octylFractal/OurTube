@@ -26,7 +26,9 @@ export function hookFields(invalidityClass: string = INVALIDITY_CLASS) {
                 $(e.target).find(`.${invalidityClass}`).removeClass(invalidityClass);
             });
             forms.find('input').on('invalid', e => {
-                checkNotNull(e.target.parentElement).classList.add(invalidityClass);
+                e.currentTarget.forEach(node => {
+                    checkNotNull(node.parentElement).classList.add(invalidityClass);
+                });
             });
         }
     });
