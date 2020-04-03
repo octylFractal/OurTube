@@ -22,6 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 package me.kenzierocks.ourtube;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,12 +30,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.jsoup.UncheckedIOException;
 
 import com.google.common.io.ByteStreams;
 

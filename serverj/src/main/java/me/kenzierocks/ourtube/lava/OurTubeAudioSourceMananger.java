@@ -22,15 +22,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 package me.kenzierocks.ourtube.lava;
 
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.concurrent.ExecutionException;
-
-import org.jsoup.UncheckedIOException;
 
 import com.google.common.base.Throwables;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;

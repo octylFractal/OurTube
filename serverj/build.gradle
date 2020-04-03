@@ -1,7 +1,7 @@
 plugins {
-    id "com.github.hierynomus.license" version "0.14.0"
- 	id "net.researchgate.release" version "2.7.0"
- 	id "com.techshroom.incise-blue" version "0.0.13"
+    id "net.minecrell.licenser" version "0.4.1"
+    id "net.researchgate.release" version "2.8.1"
+    id "com.techshroom.incise-blue" version "0.5.7"
 }
 
 apply plugin: 'java'
@@ -12,41 +12,28 @@ apply plugin: 'application'
 mainClassName = 'me.kenzierocks.ourtube.OurTube'
 
 inciseBlue {
-    plugins {
-    	apt
-    	license
-    	util
+    ide()
+    license()
+    util {
+        javaVersion = JavaVersion.VERSION_1_8
     }
-    
-    util.javaVersion = '1.8'
 }
 
 license {
     exclude '**/me/kenzierocks/ourtube/netty/SimpleHttpServer.java'
 }
 
-def JACKSON = '2.9.5'
+def JACKSON = '2.10.3'
 configurations.all {
     resolutionStrategy {
-    	// fail eagerly on version conflict (includes transitive dependencies)
-    	// e.g. multiple different versions of the same dependency (group and name are equal)
-    	failOnVersionConflict()
-
-    	// force certain versions of dependencies (including transitive)
-    	force 'com.google.guava:guava:26.0-jre', 'com.google.code.findbugs:jsr305:3.0.1',
-        	'org.apache.httpcomponents:httpcore:4.4.8', 'junit:junit:4.12',
-        	'org.slf4j:slf4j-api:1.7.25', 'com.fasterxml.jackson.core:jackson-core:' + JACKSON,
-        	'com.fasterxml.jackson.core:jackson-databind:' + JACKSON, 
-            'org.apache.httpcomponents:httpclient:4.5.4',
-        	'org.apache.commons:commons-lang3:3.7', 'commons-io:commons-io:2.6'
-
-     	cacheDynamicVersionsFor 10, 'minutes'
-     	// don't cache changing modules at all
-     	cacheChangingModulesFor 0, 'seconds'
-   	}
+        cacheDynamicVersionsFor 10, 'minutes'
+        // don't cache changing modules at all
+        cacheChangingModulesFor 0, 'seconds'
+    }
 }
 
 dependencies {
+    implementation(platform("com.fasterxml.jackson:jackson-bom:$JACKSON"))
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
@@ -56,9 +43,11 @@ dependencies {
 
     implementation 'org.bytedeco.javacpp-presets:ffmpeg-platform:3.4.2-1.4.1'
     implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.11.0'
-    
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:' + JACKSON
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-guava:' + JACKSON
+
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8'
+    implementation('com.fasterxml.jackson.datatype:jackson-datatype-guava') {
+        exclude(group: "com.google.guava", module: "guava")
+    }
 
     implementation 'com.google.api-client:google-api-client:1.23.0'
     implementation 'com.google.oauth-client:google-oauth-client-jetty:1.23.0'
@@ -66,8 +55,19 @@ dependencies {
 
     compileOnly group: 'com.techshroom', name: 'jsr305-plus', version: '0.0.1'
 
-    implementation group: 'com.google.guava', name: 'guava', version: '26.0-jre'
-    aptCompileOnly group: 'com.google.auto.service', name: 'auto-service', version: '1.0-rc4'
+    implementation group: 'com.google.guava', name: 'guava'
+    constraints {
+        implementation(group: 'com.google.guava', name: 'guava') {
+            version {
+                require("[28.0-jre,29.0-jre[")
+                prefer("28.1-jre")
+            }
+            because("it's what we're using")
+        }
+    }
+    def autoService = "1.0-rc6"
+    compileOnly group: 'com.google.auto.service', name: 'auto-service-annotations', version: autoService
+    annotationProcessor group: 'com.google.auto.service', name: 'auto-service', version: autoService
     compileOnly group: 'com.google.auto.value', name: 'auto-value-annotations', version: '1.6.2'
     annotationProcessor group: 'com.google.auto.value', name: 'auto-value', version: '1.6.2'
 
