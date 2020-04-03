@@ -1,7 +1,7 @@
 /*
  * This file is part of OurTube-serverj, licensed under the MIT License (MIT).
  *
- * Copyright (c) Kenzie Togami (kenzierocks) <https://kenzierocks.me>
+ * Copyright (c) Octavia Togami (octylFractal) <https://octyl.net>
  * Copyright (c) contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
