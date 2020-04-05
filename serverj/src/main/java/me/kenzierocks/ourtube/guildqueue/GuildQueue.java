@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
+import com.sedmelluq.discord.lavaplayer.track.BaseAudioTrack;
+import discord4j.core.object.util.Snowflake;
 import org.slf4j.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -47,10 +49,6 @@ import me.kenzierocks.ourtube.YoutubeAccess;
 import me.kenzierocks.ourtube.lava.OurTubeAudioTrack;
 import me.kenzierocks.ourtube.lava.OurTubeItemInfo;
 import me.kenzierocks.ourtube.lava.TrackScheduler;
-import sx.blah.discord.api.events.EventSubscriber;
-import sx.blah.discord.handle.impl.events.guild.voice.user.UserVoiceChannelJoinEvent;
-import sx.blah.discord.handle.obj.IGuild;
-import sx.blah.discord.handle.obj.IVoiceChannel;
 
 public enum GuildQueue {
     INSTANCE;
@@ -59,7 +57,7 @@ public enum GuildQueue {
 
     public final Events events = new Events("GuildQueue");
 
-    public void queueSongs(String guildId, String userId, String songUrl) {
+    public void queueSongs(Snowflake guildId, Snowflake userId, String songUrl) {
         Action queueSongs = AuditLog.action(userId, "guild(%s).queueSongs(%s)", guildId, songUrl)
                 .attempted();
         List<String> songIds = YoutubeAccess.INSTANCE.getSongIds(songUrl);
@@ -89,10 +87,10 @@ public enum GuildQueue {
         });
     }
 
-    private CompletableFuture<AudioTrack> createTrack(String id, String submitter) {
+    private CompletableFuture<AudioTrack> createTrack(String id, Snowflake submitter) {
         try {
             return Dissy.loadItem("ourtube:" + OurTube.MAPPER.writeValueAsString(
-                    OurTubeItemInfo.create(id, submitter)));
+                    OurTubeItemInfo.create(id, submitter.asString())));
         } catch (JsonProcessingException e) {
             CompletableFuture<AudioTrack> future = new CompletableFuture<>();
             future.completeExceptionally(e);
@@ -100,13 +98,15 @@ public enum GuildQueue {
         }
     }
 
-    public void skipSong(String guildId, String userId, String songId) {
+    public void skipSong(Snowflake guildId, Snowflake userId, String songId) {
         Action skipSong = AuditLog.action(userId, "guild(%s).skipSong(%s)", guildId, AuditLog.songInfo(songId))
                 .attempted();
 
         AudioPlayer player = Dissy.getPlayer(guildId);
         AudioTrack latest = player.getPlayingTrack();
-        String songIdSkipped = OurTubeAudioTrack.cast(latest).map(ot -> ot.getIdentifier()).orElse(null);
+        String songIdSkipped = OurTubeAudioTrack.cast(latest)
+            .map(BaseAudioTrack::getIdentifier)
+            .orElse(null);
 
         if (latest == null || !Objects.equals(songId, songIdSkipped)) {
             skipSong.log("canceled");
@@ -116,16 +116,6 @@ public enum GuildQueue {
         skipSong.performed();
 
         Dissy.getScheduler(guildId).skipTrack();
-    }
-
-    @EventSubscriber
-    public void onUserJoinVoice(UserVoiceChannelJoinEvent event) {
-        IGuild guild = event.getGuild();
-        IVoiceChannel conn = guild.getConnectedVoiceChannel();
-        if (conn == null || conn.getLongID() != event.getVoiceChannel().getLongID()) {
-            return;
-        }
-        Dissy.getScheduler(guild.getStringID()).nextTrack(true);
     }
 
 }

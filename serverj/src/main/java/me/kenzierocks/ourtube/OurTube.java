@@ -40,7 +40,7 @@ public class OurTube {
 
     private static final Logger LOGGER = Log.get();
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
         // trigger ws
         Futures.addCallback(AsyncService.GENERIC.submit(new WebsocketTask()), new FutureCallback<Object>() {
 
@@ -56,11 +56,7 @@ public class OurTube {
 
         }, AsyncService.GENERIC);
         // trigger bot
-        Dissy.BOT.isLoggedIn();
-        while (true) {
-            // sit and wait to die
-            Thread.sleep(Long.MAX_VALUE);
-        }
+        Dissy.BOT.login().block();
     }
 
 }

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
+import discord4j.core.object.util.Snowflake;
 import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.Events;
 
@@ -39,14 +40,14 @@ public enum GuildVolume {
 
     public final Events events = new Events("GuildVolume");
 
-    private final Map<String, Float> volumeMap = new ConcurrentHashMap<>();
+    private final Map<Snowflake, Float> volumeMap = new ConcurrentHashMap<>();
 
-    public float getVolume(String guildId) {
+    public float getVolume(Snowflake guildId) {
         Float volume = volumeMap.get(guildId);
         return volume == null ? DEFAULT_VOLUME : volume;
     }
 
-    public void setVolume(String guildId, String userId, float volume) {
+    public void setVolume(Snowflake guildId, Snowflake userId, float volume) {
         AuditLog.action(userId, "guild(%s).setVolume(%s)", guildId, volume)
                 .attempted().performed();
         Float old = volumeMap.put(guildId, volume);

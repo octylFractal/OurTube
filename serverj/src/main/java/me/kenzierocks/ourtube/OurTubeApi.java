@@ -25,16 +25,10 @@
 
 package me.kenzierocks.ourtube;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.eventbus.Subscribe;
-
+import discord4j.core.object.entity.VoiceChannel;
+import discord4j.core.object.util.Snowflake;
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
@@ -50,7 +44,13 @@ import me.kenzierocks.ourtube.rpc.RpcRegistry;
 import me.kenzierocks.ourtube.songprogress.NewProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgressMap;
-import sx.blah.discord.handle.obj.IGuild;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class OurTubeApi {
 
@@ -67,12 +67,12 @@ public class OurTubeApi {
         setupEvents();
     }
 
-    private final class Subscription {
+    private static final class Subscription {
 
         private final RpcClient client;
-        private final String guildId;
+        private final Snowflake guildId;
 
-        Subscription(RpcClient client, String guildId) {
+        Subscription(RpcClient client, Snowflake guildId) {
             this.client = client;
             this.guildId = guildId;
         }
@@ -119,54 +119,66 @@ public class OurTubeApi {
 
     private void setupSongQueue() {
         Map<String, Subscription> subscriptions = new ConcurrentHashMap<>();
-        server.register("songQueue.subscribe", RpcEventHandler.typed(String.class, (client, guildId) -> {
-            String sessId = client.getId();
-            if (subscriptions.containsKey(sessId)) {
-                songQueueUnsubscribe(subscriptions.get(sessId));
-            }
+        server.register("songQueue.subscribe",
+            RpcEventHandler.typed(String.class, (client, stringGuildId) -> {
+                var guildId = Snowflake.of(stringGuildId);
+                String sessId = client.getId();
+                if (subscriptions.containsKey(sessId)) {
+                    songQueueUnsubscribe(subscriptions.get(sessId));
+                }
 
-            Subscription subs = new Subscription(client, guildId);
-            GuildQueue.INSTANCE.events.subscribe(guildId, subs);
-            SongProgressMap.INSTANCE.events.subscribe(guildId, subs);
-            subscriptions.put(sessId, subs);
+                Subscription subs = new Subscription(client, guildId);
+                GuildQueue.INSTANCE.events.subscribe(guildId, subs);
+                SongProgressMap.INSTANCE.events.subscribe(guildId, subs);
+                subscriptions.put(sessId, subs);
 
-            // emit the entire queue for this guildId to the client
-            Stream.concat(
+                // emit the entire queue for this guildId to the client
+                Stream.concat(
                     Stream.of(Dissy.getPlayer(guildId).getPlayingTrack()),
                     Dissy.getScheduler(guildId)
-                            .allTracksStream())
-                    .map(tr -> OurTubeAudioTrack.cast(tr))
+                        .allTracksStream())
+                    .map(OurTubeAudioTrack::cast)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(ot -> {
-                        String submitter = ot.getMetadata().submitter();
+                        Snowflake submitter = Snowflake.of(ot.getMetadata().submitter());
                         String nick = Dissy.getNameForUserInGuild(guildId, submitter);
                         return PushSong.create(ot.getIdentifier(), nick);
                     })
                     .forEach(subs::onPush);
 
-            SongProgress progress = SongProgressMap.INSTANCE.getProgress(guildId);
-            if (progress != null) {
-                subs.onNewProgress(NewProgress.create(progress));
-            }
-            subs.onSetVolume(SetVolume.create(GuildVolume.INSTANCE.getVolume(guildId)));
-            GuildVolume.INSTANCE.events.subscribe(guildId, subs);
-        }));
-        server.register("songQueue.unsubscribe", RpcEventHandler.typed(Void.class, (client, nothing) -> {
-            String sessId = client.getId();
-            if (subscriptions.containsKey(sessId)) {
-                songQueueUnsubscribe(subscriptions.remove(sessId));
-            }
-        }));
-        server.register("songQueue.queue", RpcEventHandler.typed(QueueSongs.class, (client, queueSongs) -> {
-            GuildQueue.INSTANCE.queueSongs(queueSongs.guildId, client.getUserId(), queueSongs.songUrl);
-        }));
-        server.register("songQueue.setVolume", RpcEventHandler.typed(ApiSetVolume.class, (client, setVolume) -> {
-            GuildVolume.INSTANCE.setVolume(setVolume.guildId, client.getUserId(), setVolume.volume);
-        }));
+                SongProgress progress = SongProgressMap.INSTANCE.getProgress(guildId);
+                if (progress != null) {
+                    subs.onNewProgress(NewProgress.create(progress));
+                }
+                subs.onSetVolume(SetVolume.create(GuildVolume.INSTANCE.getVolume(guildId)));
+                GuildVolume.INSTANCE.events.subscribe(guildId, subs);
+            }));
+        server.register("songQueue.unsubscribe",
+            RpcEventHandler.typed(Void.class, (client, nothing) -> {
+                String sessId = client.getId();
+                if (subscriptions.containsKey(sessId)) {
+                    songQueueUnsubscribe(subscriptions.remove(sessId));
+                }
+            }));
+        server.register("songQueue.queue",
+            RpcEventHandler.typed(QueueSongs.class, (client, queueSongs) ->
+                GuildQueue.INSTANCE.queueSongs(
+                    Snowflake.of(queueSongs.guildId),
+                    client.getUserId(),
+                    queueSongs.songUrl
+                )
+            ));
+        server.register("songQueue.setVolume",
+            RpcEventHandler.typed(ApiSetVolume.class, (client, setVolume) ->
+                GuildVolume.INSTANCE.setVolume(
+                    Snowflake.of(setVolume.guildId),
+                    client.getUserId(),
+                    setVolume.volume
+                )
+            ));
 
         server.getEvents().register(new Object() {
-
             @Subscribe
             public void onDisconnect(RpcDisconnect disconnect) {
                 Subscription s = subscriptions.remove(disconnect.getClient().getId());
@@ -184,12 +196,14 @@ public class OurTubeApi {
     }
 
     private void setupYoutubeQueries() {
-        server.register("yt.songData", RpcEventHandler.typed(GetSongData.class, (client, data) -> {
-            AsyncService.asyncResponse(client, data.callbackName, YoutubeAccess.INSTANCE.getVideoDataCached(data.songId));
-        }));
+        server.register("yt.songData", RpcEventHandler.typed(GetSongData.class, (client, data) ->
+            AsyncService.asyncResponse(client, data.callbackName,
+                YoutubeAccess.INSTANCE.getVideoDataCached(data.songId)
+            )
+        ));
     }
 
-    private final class DissyChannel {
+    private static final class DissyChannel {
 
         @JsonProperty
         public final String id;
@@ -203,12 +217,12 @@ public class OurTubeApi {
 
     }
 
-    private final class DissySub {
+    private static final class DissySub {
 
         private final RpcClient client;
-        private final String guildId;
+        private final Snowflake guildId;
 
-        DissySub(RpcClient client, String guildId) {
+        DissySub(RpcClient client, Snowflake guildId) {
             this.client = client;
             this.guildId = guildId;
         }
@@ -242,44 +256,58 @@ public class OurTubeApi {
     }
 
     private void setupDiscordQueries() {
-        server.register("dis.filterGuilds", RpcEventHandler.typed(FilterGuilds.class, (client, args) -> {
-            AsyncService.asyncResponse(client, args.callbackName,
-                    () -> Stream.of(args.guildIds)
-                            .filter(gid -> Dissy.BOT.getGuildByID(Long.parseUnsignedLong(gid)) != null)
-                            .collect(toImmutableList()));
-        }));
-        server.register("dis.channels", RpcEventHandler.typed(GetVoiceChannels.class, (client, args) -> {
-            AsyncService.asyncResponse(client, args.callbackName,
+        server.register("dis.filterGuilds",
+            RpcEventHandler.typed(FilterGuilds.class, (client, args) ->
+                AsyncService.asyncResponse(client, args.callbackName,
+                    () ->
+                        Stream.of(args.guildIds)
+                            .filter(
+                                gid -> Dissy.BOT.getGuildById(Snowflake.of(gid)).block() != null)
+                            .collect(toImmutableList())
+                )
+            ));
+        server.register("dis.channels",
+            RpcEventHandler.typed(GetVoiceChannels.class, (client, args) ->
+                AsyncService.asyncResponse(client, args.callbackName,
                     () -> {
-                        IGuild guild = Dissy.BOT.getGuildByID(Long.parseUnsignedLong(args.guildId));
+                        var guild = Dissy.BOT.getGuildById(Snowflake.of(args.guildId)).block();
                         if (guild == null) {
                             throw new IllegalArgumentException("Invalid guild ID.");
                         }
-                        return guild.getVoiceChannels().stream()
-                                .map(ic -> new DissyChannel(ic.getStringID(), ic.getName()))
-                                .collect(toImmutableList());
-                    });
-        }));
-        server.register("dis.selectChannel", RpcEventHandler.typed(SelectChannel.class, (client, args) -> {
-            GuildChannels.INSTANCE.setChannel(args.guildId, client.getUserId(), args.channelId);
-        }));
+                        return guild.getChannels()
+                            .filter(VoiceChannel.class::isInstance)
+                            .cast(VoiceChannel.class)
+                            .map(ic -> new DissyChannel(ic.getId().asString(), ic.getName()))
+                            .collect(toImmutableList());
+                    })
+            ));
+        server.register("dis.selectChannel",
+            RpcEventHandler.typed(SelectChannel.class, (client, args) ->
+                GuildChannels.INSTANCE.setChannel(
+                    Snowflake.of(args.guildId),
+                    client.getUserId(),
+                    Snowflake.of(args.channelId)
+                )
+            ));
 
         Map<String, DissySub> subscriptions = new ConcurrentHashMap<>();
-        server.register("dis.subscribe", RpcEventHandler.typed(String.class, (client, guildId) -> {
-            String sessId = client.getId();
-            if (subscriptions.containsKey(sessId)) {
-                disUnsubscribe(subscriptions.get(sessId));
-            }
+        server.register("dis.subscribe",
+            RpcEventHandler.typed(String.class, (client, stringGuildId) -> {
+                String sessId = client.getId();
+                if (subscriptions.containsKey(sessId)) {
+                    disUnsubscribe(subscriptions.get(sessId));
+                }
+                var guildId = Snowflake.of(stringGuildId);
 
-            DissySub sub = new DissySub(client, guildId);
+                DissySub sub = new DissySub(client, guildId);
 
-            String channel = GuildChannels.INSTANCE.getChannel(guildId);
-            sub.onNewChannel(NewChannel.create(channel));
+                Snowflake channel = GuildChannels.INSTANCE.getChannel(guildId);
+                sub.onNewChannel(NewChannel.create(channel));
 
-            GuildChannels.INSTANCE.events.subscribe(guildId, sub);
+                GuildChannels.INSTANCE.events.subscribe(guildId, sub);
 
-            subscriptions.put(client.getId(), sub);
-        }));
+                subscriptions.put(client.getId(), sub);
+            }));
 
         server.register("dis.unsubscribe", RpcEventHandler.typed(Void.class, (client, nothing) -> {
             String sessId = client.getId();
@@ -289,7 +317,6 @@ public class OurTubeApi {
         }));
 
         server.getEvents().register(new Object() {
-
             @Subscribe
             public void onDisconnect(RpcDisconnect disconnect) {
                 DissySub s = subscriptions.remove(disconnect.getClient().getId());
@@ -307,12 +334,14 @@ public class OurTubeApi {
     }
 
     private void setupEvents() {
-        server.register("event.skipSong", RpcEventHandler.typed(ApiSkipSong.class, (client, args) -> {
-            if (args.songId == null) {
-                return;
-            }
-            GuildQueue.INSTANCE.skipSong(args.guildId, client.getUserId(), args.songId);
-        }));
+        server
+            .register("event.skipSong", RpcEventHandler.typed(ApiSkipSong.class, (client, args) -> {
+                if (args.songId == null) {
+                    return;
+                }
+                GuildQueue.INSTANCE
+                    .skipSong(Snowflake.of(args.guildId), client.getUserId(), args.songId);
+            }));
     }
 
 }

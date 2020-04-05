@@ -28,6 +28,7 @@ package me.kenzierocks.ourtube.rpc;
 import java.util.function.Consumer;
 
 import com.google.auto.value.AutoValue;
+import discord4j.core.object.util.Snowflake;
 
 @AutoValue
 public abstract class RpcClientImpl implements RpcClient {
@@ -41,7 +42,7 @@ public abstract class RpcClientImpl implements RpcClient {
 
         Builder id(String id);
 
-        Builder userId(String userId);
+        Builder userId(Snowflake userId);
 
         Builder token(String token);
 

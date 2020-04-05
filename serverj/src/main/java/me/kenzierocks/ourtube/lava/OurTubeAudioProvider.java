@@ -25,27 +25,32 @@
 
 package me.kenzierocks.ourtube.lava;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.eventbus.Subscribe;
+import com.sedmelluq.discord.lavaplayer.format.StandardAudioDataFormats;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
-import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
-
+import com.sedmelluq.discord.lavaplayer.track.playback.MutableAudioFrame;
+import discord4j.core.object.util.Snowflake;
+import discord4j.voice.AudioProvider;
 import me.kenzierocks.ourtube.guildvol.GuildVolume;
 import me.kenzierocks.ourtube.guildvol.SetVolume;
-import sx.blah.discord.handle.audio.AudioEncodingType;
-import sx.blah.discord.handle.audio.IAudioProvider;
 
-public class AudioProvider implements IAudioProvider {
+import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class OurTubeAudioProvider extends AudioProvider {
 
     private final AudioPlayer audioPlayer;
-    private volatile int framesProvided;
-    private AudioFrame lastFrame;
+    private final MutableAudioFrame frame = new MutableAudioFrame();
+    private final AtomicInteger framesProvided = new AtomicInteger();
 
-    public AudioProvider(String guildId, AudioPlayer audioPlayer) {
+    public OurTubeAudioProvider(Snowflake guildId, AudioPlayer audioPlayer) {
+        super(ByteBuffer.allocate(
+            StandardAudioDataFormats.DISCORD_OPUS.maximumChunkSize()
+        ));
         this.audioPlayer = audioPlayer;
         GuildVolume.INSTANCE.events.subscribe(guildId, this);
         audioPlayer.setVolume((int) GuildVolume.INSTANCE.getVolume(guildId));
+        frame.setBuffer(getBuffer());
     }
 
     @Subscribe
@@ -53,40 +58,17 @@ public class AudioProvider implements IAudioProvider {
         audioPlayer.setVolume((int) setVolume.getVolume());
     }
 
-    @Override
-    public boolean isReady() {
-        if (lastFrame == null) {
-            lastFrame = audioPlayer.provide();
-        }
-
-        return lastFrame != null;
-    }
-
     public long getDurationProvidedMs() {
-        return framesProvided * 20l;
+        return framesProvided.get() * 20L;
     }
 
     @Override
-    public byte[] provide() {
-        checkState(isReady(), "Not ready!");
-
-        byte[] data = lastFrame != null ? lastFrame.data : null;
-        lastFrame = null;
-
-        if (data != null) {
-            framesProvided++;
+    public boolean provide() {
+        boolean didProvide = audioPlayer.provide(frame);
+        if (didProvide) {
+            getBuffer().flip();
+            framesProvided.getAndIncrement();
         }
-
-        return data;
-    }
-
-    @Override
-    public int getChannels() {
-        return 2;
-    }
-
-    @Override
-    public AudioEncodingType getAudioEncodingType() {
-        return AudioEncodingType.OPUS;
+        return didProvide;
     }
 }

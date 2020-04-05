@@ -15,7 +15,7 @@ inciseBlue {
     ide()
     license()
     util {
-        javaVersion = JavaVersion.VERSION_1_8
+        javaVersion = JavaVersion.VERSION_14
     }
 }
 
@@ -34,24 +34,24 @@ configurations.all {
 
 dependencies {
     implementation(platform("com.fasterxml.jackson:jackson-bom:$JACKSON"))
-    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
     implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
-    implementation 'com.discord4j:Discord4J:2.10.1'
-    implementation 'com.sedmelluq:lavaplayer:1.2.63'
-    implementation group: 'io.netty', name: 'netty-all', version: '4.1.25.Final'
+    implementation 'com.discord4j:discord4j-core:3.0.13'
+    implementation 'com.sedmelluq:lavaplayer:1.3.43'
+    implementation group: 'io.netty', name: 'netty-all', version: '4.1.48.Final'
 
-    implementation 'org.bytedeco.javacpp-presets:ffmpeg-platform:3.4.2-1.4.1'
-    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.11.0'
+    implementation 'org.bytedeco.javacpp-presets:ffmpeg-platform:4.1-1.4.4'
+    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '4.4.1'
 
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8'
     implementation('com.fasterxml.jackson.datatype:jackson-datatype-guava') {
         exclude(group: "com.google.guava", module: "guava")
     }
 
-    implementation 'com.google.api-client:google-api-client:1.23.0'
-    implementation 'com.google.oauth-client:google-oauth-client-jetty:1.23.0'
-    implementation 'com.google.apis:google-api-services-youtube:v3-rev189-1.23.0'
+    implementation 'com.google.api-client:google-api-client:1.30.9'
+    implementation 'com.google.oauth-client:google-oauth-client-jetty:1.30.6'
+    implementation 'com.google.apis:google-api-services-youtube:v3-rev20200312-1.30.9'
 
     compileOnly group: 'com.techshroom', name: 'jsr305-plus', version: '0.0.1'
 
@@ -59,8 +59,8 @@ dependencies {
     constraints {
         implementation(group: 'com.google.guava', name: 'guava') {
             version {
-                require("[28.0-jre,29.0-jre[")
-                prefer("28.1-jre")
+                // guava is weird and has -android which we don't want
+                strictly("28.2-jre")
             }
             because("it's what we're using")
         }
@@ -68,10 +68,11 @@ dependencies {
     def autoService = "1.0-rc6"
     compileOnly group: 'com.google.auto.service', name: 'auto-service-annotations', version: autoService
     annotationProcessor group: 'com.google.auto.service', name: 'auto-service', version: autoService
-    compileOnly group: 'com.google.auto.value', name: 'auto-value-annotations', version: '1.6.2'
-    annotationProcessor group: 'com.google.auto.value', name: 'auto-value', version: '1.6.2'
+    def autoValue = "1.7"
+    compileOnly group: 'com.google.auto.value', name: 'auto-value-annotations', version: autoValue
+    annotationProcessor group: 'com.google.auto.value', name: 'auto-value', version: autoValue
 
-    testImplementation group: 'junit', name: 'junit', version: '4.12'
+    testImplementation group: 'junit', name: 'junit', version: '4.13'
 
 }
 

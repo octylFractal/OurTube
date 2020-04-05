@@ -25,8 +25,10 @@
 
 package me.kenzierocks.ourtube.lava;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -36,6 +38,9 @@ import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
+import com.sedmelluq.discord.lavaplayer.track.BaseAudioTrack;
+import discord4j.core.object.util.Snowflake;
+import discord4j.voice.VoiceConnection;
 import org.slf4j.Logger;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
@@ -50,18 +55,17 @@ import me.kenzierocks.ourtube.Log;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
 import me.kenzierocks.ourtube.guildqueue.PopSong;
 import me.kenzierocks.ourtube.guildqueue.PushSong;
-import sx.blah.discord.handle.obj.IVoiceChannel;
 
 public class TrackScheduler extends AudioEventAdapter {
 
     private static final Logger LOGGER = Log.get();
 
-    private final String guildId;
+    private final Snowflake guildId;
     private final AudioPlayer player;
-    private final ConcurrentHashMap<String, BlockingQueue<AudioTrack>> queue;
+    private final ConcurrentHashMap<Snowflake, BlockingQueue<AudioTrack>> queue;
     private final Lock accessLock = new ReentrantLock();
 
-    public TrackScheduler(String guildId, AudioPlayer player) {
+    public TrackScheduler(Snowflake guildId, AudioPlayer player) {
         this.guildId = guildId;
         this.player = player;
         player.addListener(this);
@@ -70,32 +74,31 @@ public class TrackScheduler extends AudioEventAdapter {
 
     public Stream<AudioTrack> allTracksStream() {
         return queue.values().stream()
-                .flatMap(q -> q.stream())
+                .flatMap(Collection::stream)
                 .sorted(OurTubeAudioTrack.CMP_QUEUE_TIME);
     }
 
-    public BlockingQueue<AudioTrack> getQueue(String userId) {
+    public BlockingQueue<AudioTrack> getQueue(Snowflake userId) {
         return queue.computeIfAbsent(userId, uid -> new LinkedBlockingDeque<>());
     }
 
     private Optional<BlockingQueue<AudioTrack>> peekNextQueue() {
-        IVoiceChannel connected = Dissy.BOT.getGuildByID(Long.parseUnsignedLong(guildId))
-                .getConnectedVoiceChannel();
+        var connected = Dissy.getConnection(guildId);
         if (connected == null) {
             return Optional.empty();
         }
-        return connected.getConnectedUsers().stream()
-                .map(user -> getQueue(user.getStringID()))
+        return Optional.ofNullable(connected.channel.getVoiceStates()
+                .map(user -> getQueue(user.getUserId()))
                 .filter(queue -> !queue.isEmpty())
-                .sorted(Comparator.comparing(BlockingQueue::peek, OurTubeAudioTrack.CMP_QUEUE_TIME))
-                .findFirst();
+                .sort(Comparator.comparing(BlockingQueue::peek, OurTubeAudioTrack.CMP_QUEUE_TIME))
+                .blockFirst());
     }
 
     @Nullable
     private AudioTrack pollNextTrack() {
         accessLock.lock();
         try {
-            return peekNextQueue().map(q -> q.poll()).orElse(null);
+            return peekNextQueue().map(Queue::poll).orElse(null);
         } finally {
             accessLock.unlock();
         }
@@ -105,7 +108,7 @@ public class TrackScheduler extends AudioEventAdapter {
     private AudioTrack peekNextTrack() {
         accessLock.lock();
         try {
-            return peekNextQueue().map(q -> q.peek()).orElse(null);
+            return peekNextQueue().map(Queue::peek).orElse(null);
         } finally {
             accessLock.unlock();
         }
@@ -115,13 +118,13 @@ public class TrackScheduler extends AudioEventAdapter {
         return accessLock;
     }
 
-    public void addTrack(String userId, AudioTrack track) {
+    public void addTrack(Snowflake userId, AudioTrack track) {
         accessLock.lock();
         try {
             LOGGER.debug("Queued track " + track.getIdentifier());
             getQueue(userId).add(track);
             OurTubeAudioTrack.cast(track)
-                    .map(otat -> otat.getIdentifier())
+                    .map(BaseAudioTrack::getIdentifier)
                     .ifPresent(songId -> {
                         String nick = Dissy.getNameForUserInGuild(guildId, userId);
                         GuildQueue.INSTANCE.events.post(guildId, PushSong.create(songId, nick));
@@ -162,7 +165,7 @@ public class TrackScheduler extends AudioEventAdapter {
     @Override
     public void onTrackStart(AudioPlayer player, AudioTrack track) {
         OurTubeAudioTrack.cast(track)
-                .map(otat -> otat.getIdentifier())
+                .map(BaseAudioTrack::getIdentifier)
                 .ifPresent(songId -> {
                     AsyncService.GENERIC.execute(new AudioUpdatesTask(
                             player,

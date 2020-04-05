@@ -25,7 +25,31 @@
 
 package me.kenzierocks.ourtube;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.youtube.YouTube;
+import com.google.api.services.youtube.YouTube.PlaylistItems;
+import com.google.api.services.youtube.model.PlaylistItem;
+import com.google.api.services.youtube.model.PlaylistItemContentDetails;
+import com.google.api.services.youtube.model.PlaylistItemListResponse;
+import com.google.api.services.youtube.model.Video;
+import com.google.api.services.youtube.model.VideoContentDetails;
+import com.google.api.services.youtube.model.VideoListResponse;
+import com.google.api.services.youtube.model.VideoSnippet;
+import com.google.common.base.Splitter;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.netty.handler.codec.http.QueryStringDecoder;
+import me.kenzierocks.ourtube.SongData.Thumbnail;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -38,33 +62,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import org.slf4j.Logger;
-
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.client.repackaged.com.google.common.base.Splitter;
-import com.google.api.services.youtube.YouTube;
-import com.google.api.services.youtube.YouTube.PlaylistItems;
-import com.google.api.services.youtube.model.PlaylistItem;
-import com.google.api.services.youtube.model.PlaylistItemContentDetails;
-import com.google.api.services.youtube.model.PlaylistItemListResponse;
-import com.google.api.services.youtube.model.Video;
-import com.google.api.services.youtube.model.VideoContentDetails;
-import com.google.api.services.youtube.model.VideoListResponse;
-import com.google.api.services.youtube.model.VideoSnippet;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-
-import io.netty.handler.codec.http.QueryStringDecoder;
-import me.kenzierocks.ourtube.SongData.Thumbnail;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public enum YoutubeAccess {
     INSTANCE;

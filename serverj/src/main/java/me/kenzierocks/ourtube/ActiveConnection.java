@@ -23,24 +23,17 @@
  * THE SOFTWARE.
  */
 
-package me.kenzierocks.ourtube.guildchannels;
+package me.kenzierocks.ourtube;
 
-import javax.annotation.Nullable;
+import discord4j.core.object.entity.VoiceChannel;
+import discord4j.voice.VoiceConnection;
 
-import com.google.auto.value.AutoValue;
-import discord4j.core.object.util.Snowflake;
+public class ActiveConnection {
+    public final VoiceChannel channel;
+    public final VoiceConnection connection;
 
-@AutoValue
-public abstract class NewChannel {
-
-    public static NewChannel create(@Nullable Snowflake channelId) {
-        return new AutoValue_NewChannel(channelId);
+    public ActiveConnection(VoiceChannel channel, VoiceConnection connection) {
+        this.channel = channel;
+        this.connection = connection;
     }
-
-    NewChannel() {
-    }
-
-    @Nullable
-    public abstract Snowflake getChannelId();
-
 }

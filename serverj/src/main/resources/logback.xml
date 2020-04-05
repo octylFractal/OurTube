@@ -4,12 +4,13 @@
 			<level>DEBUG</level>
 		</filter>
 		<encoder>
-			<pattern>[%thread/%level][%logger{1}]: %msg %n</pattern>
+			<pattern>[%thread/%level][%logger]: %msg %n</pattern>
 		</encoder>
 	</appender>
 
-	<logger name="com.corundumstudio.socketio" level="INFO" />
-	<logger name="io.netty.handler.codec.http.websocketx" level="INFO" />
+	<logger name="discord4j" level="INFO" />
+    <logger name="reactor.netty" level="INFO" />
+    <logger name="io.netty" level="INFO" />
 
 	<root level="DEBUG">
 		<appender-ref ref="STDOUT" />

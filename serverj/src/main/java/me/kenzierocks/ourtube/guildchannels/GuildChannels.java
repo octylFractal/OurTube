@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
+import discord4j.core.object.util.Snowflake;
 import me.kenzierocks.ourtube.AuditLog;
 import me.kenzierocks.ourtube.Events;
 
@@ -40,19 +41,19 @@ public enum GuildChannels {
 
     public final Events events = new Events("GuildChannels");
 
-    private final Map<String, Optional<String>> channelsMap = new ConcurrentHashMap<>();
+    private final Map<Snowflake, Optional<Snowflake>> channelsMap = new ConcurrentHashMap<>();
 
     @Nullable
-    public String getChannel(String guildId) {
-        Optional<String> val = channelsMap.get(guildId);
+    public Snowflake getChannel(Snowflake guildId) {
+        Optional<Snowflake> val = channelsMap.get(guildId);
         return val == null ? null : val.orElse(null);
     }
 
-    public void setChannel(String guildId, String userId, @Nullable String channelId) {
+    public void setChannel(Snowflake guildId, Snowflake userId, @Nullable Snowflake channelId) {
         AuditLog.action(userId, "guild(%s).setChannel(%s)", guildId, channelId)
                 .attempted().performed();
-        Optional<String> newId = Optional.ofNullable(channelId);
-        Optional<String> old = channelsMap.put(guildId, newId);
+        Optional<Snowflake> newId = Optional.ofNullable(channelId);
+        Optional<Snowflake> old = channelsMap.put(guildId, newId);
         if (!Objects.equals(newId, old)) {
             events.post(guildId, NewChannel.create(channelId));
         }

@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
+import discord4j.core.object.util.Snowflake;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
@@ -48,7 +49,7 @@ public class RpcClientRegistry {
     private final ObjectMapper mapper = new ObjectMapper()
             .registerModules(new Jdk8Module(), new GuavaModule());
 
-    public void register(Channel channel, String userId, String token) {
+    public void register(Channel channel, Snowflake userId, String token) {
         clientCache.put(channel, RpcClientImpl.builder()
                 .id(channel.id().asLongText())
                 .userId(userId)

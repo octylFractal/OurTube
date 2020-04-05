@@ -25,13 +25,6 @@
 
 package me.kenzierocks.ourtube;
 
-import java.net.URL;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Predicate;
-
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.Resources;
@@ -43,31 +36,41 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
-
+import discord4j.core.DiscordClient;
+import discord4j.core.DiscordClientBuilder;
+import discord4j.core.event.domain.guild.GuildCreateEvent;
+import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.object.entity.Channel;
+import discord4j.core.object.entity.Guild;
+import discord4j.core.object.entity.GuildChannel;
+import discord4j.core.object.entity.Member;
+import discord4j.core.object.entity.Message;
+import discord4j.core.object.entity.MessageChannel;
+import discord4j.core.object.entity.VoiceChannel;
+import discord4j.core.object.util.Snowflake;
+import discord4j.voice.VoiceConnection;
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
-import me.kenzierocks.ourtube.guildqueue.GuildQueue;
-import me.kenzierocks.ourtube.lava.AudioProvider;
+import me.kenzierocks.ourtube.lava.OurTubeAudioProvider;
 import me.kenzierocks.ourtube.lava.OurTubeAudioSourceMananger;
 import me.kenzierocks.ourtube.lava.TrackScheduler;
-import sx.blah.discord.api.ClientBuilder;
-import sx.blah.discord.api.IDiscordClient;
-import sx.blah.discord.api.events.EventSubscriber;
-import sx.blah.discord.api.events.IListener;
-import sx.blah.discord.handle.impl.events.guild.GuildCreateEvent;
-import sx.blah.discord.handle.impl.events.guild.channel.message.MessageEvent;
-import sx.blah.discord.handle.obj.IGuild;
-import sx.blah.discord.handle.obj.IVoiceChannel;
+
+import javax.annotation.Nullable;
+import java.net.URL;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class Dissy {
 
-    public static final IDiscordClient BOT = new ClientBuilder()
-            .withToken(Environment.DISCORD_TOKEN)
-            .registerListener(guildSubscriber())
-            .registerListener(GuildQueue.INSTANCE)
-            .login();
+    public static final DiscordClient BOT = new DiscordClientBuilder(Environment.DISCORD_TOKEN)
+        .build();
 
     private static final AudioPlayerManager manager = new DefaultAudioPlayerManager();
+
     static {
         AudioSourceManagers.registerLocalSource(manager);
         manager.registerSourceManager(new OurTubeAudioSourceMananger());
@@ -77,56 +80,65 @@ public class Dissy {
         return manager;
     }
 
-    private static final Map<String, AudioPlayer> guildPlayers = new ConcurrentHashMap<>();
+    private static final Map<Snowflake, AudioPlayer> guildPlayers = new ConcurrentHashMap<>();
 
-    public static AudioPlayer getPlayer(String guildId) {
+    public static AudioPlayer getPlayer(Snowflake guildId) {
         return guildPlayers.computeIfAbsent(guildId, k -> manager.createPlayer());
     }
 
-    private static final Map<String, TrackScheduler> guildSchedulers = new ConcurrentHashMap<>();
+    private static final Map<Snowflake, TrackScheduler> guildSchedulers = new ConcurrentHashMap<>();
 
-    public static TrackScheduler getScheduler(String guildId) {
+    public static TrackScheduler getScheduler(Snowflake guildId) {
         return guildSchedulers.computeIfAbsent(guildId, k -> new TrackScheduler(k, getPlayer(k)));
     }
 
-    private static final Map<String, AudioProvider> guildProviders = new ConcurrentHashMap<>();
+    private static final Map<Snowflake, OurTubeAudioProvider> guildProviders = new ConcurrentHashMap<>();
 
-    public static AudioProvider getProvider(String guildId) {
-        return guildProviders.computeIfAbsent(guildId, k -> new AudioProvider(k, getPlayer(k)));
+    public static OurTubeAudioProvider getProvider(Snowflake guildId) {
+        return guildProviders
+            .computeIfAbsent(guildId, k -> new OurTubeAudioProvider(k, getPlayer(k)));
+    }
+
+    private static final Map<Snowflake, ActiveConnection> guildConnections = new ConcurrentHashMap<>();
+
+    @Nullable
+    public static ActiveConnection getConnection(Snowflake guildId) {
+        return guildConnections.get(guildId);
     }
 
     private static final Object startupFlag = new Object();
 
     static {
         URL startup = Resources.getResource("defaultsounds/winXpStart.mp3");
-        TempFileCache.cacheData("startup-xp", () -> Resources.asByteSource(startup).openBufferedStream());
+        TempFileCache
+            .cacheData("startup-xp", () -> Resources.asByteSource(startup).openBufferedStream());
     }
 
     public static CompletableFuture<AudioTrack> loadItem(String identifier) {
         CompletableFuture<AudioTrack> future = new CompletableFuture<>();
         manager.loadItem(identifier,
-                new AudioLoadResultHandler() {
+            new AudioLoadResultHandler() {
 
-                    @Override
-                    public void trackLoaded(AudioTrack track) {
-                        future.complete(track);
-                    }
+                @Override
+                public void trackLoaded(AudioTrack track) {
+                    future.complete(track);
+                }
 
-                    @Override
-                    public void playlistLoaded(AudioPlaylist playlist) {
-                        future.complete(playlist.getTracks().get(0));
-                    }
+                @Override
+                public void playlistLoaded(AudioPlaylist playlist) {
+                    future.complete(playlist.getTracks().get(0));
+                }
 
-                    @Override
-                    public void noMatches() {
-                        future.completeExceptionally(new IllegalStateException("Missing sound loader"));
-                    }
+                @Override
+                public void noMatches() {
+                    future.completeExceptionally(new IllegalStateException("Missing sound loader"));
+                }
 
-                    @Override
-                    public void loadFailed(FriendlyException exception) {
-                        future.completeExceptionally(exception);
-                    }
-                });
+                @Override
+                public void loadFailed(FriendlyException exception) {
+                    future.completeExceptionally(exception);
+                }
+            });
         return future;
     }
 
@@ -144,61 +156,67 @@ public class Dissy {
     }
 
     private static AudioTrack getStartupSound() {
-        CompletableFuture<AudioTrack> future = loadItem(TempFileCache.getCachedData("startup-xp").toString());
+        CompletableFuture<AudioTrack> future = loadItem(
+            TempFileCache.getCachedData("startup-xp").toString());
         AudioTrack audioTrack = getCfEasily(future);
         audioTrack.setUserData(startupFlag);
         return audioTrack;
     }
 
-    public static String getNameForUserInGuild(String guildId, String userId) {
-        IGuild guild = BOT.getGuildByID(Long.parseUnsignedLong(guildId));
-        return guild.getUserByID(Long.parseUnsignedLong(userId))
-                .getDisplayName(guild);
+    public static String getNameForUserInGuild(Snowflake guildId, Snowflake userId) {
+        return BOT.getMemberById(guildId, userId)
+            .map(Member::getDisplayName)
+            .block();
     }
 
     static {
-        BOT.getDispatcher().registerListener(new Object() {
-
-            @EventSubscriber
-            public void onMessage(MessageEvent event) {
-                if (!event.getChannel().isPrivate() || event.getAuthor().getLongID() == BOT.getOurUser().getLongID()) {
-                    return;
-                }
-                event.getChannel().sendMessage("no u");
+        BOT.getEventDispatcher().on(MessageCreateEvent.class).subscribe(event -> {
+            Message message = event.getMessage();
+            MessageChannel channel = message.getChannel().block();
+            if (channel == null || channel instanceof GuildChannel ||
+                message.getAuthor()
+                    .flatMap(user -> BOT.getSelfId()
+                        .filter(id -> !id.equals(user.getId())))
+                    .isPresent()) {
+                return;
             }
+            channel.createMessage("no u");
         });
+        BOT.getEventDispatcher().on(GuildCreateEvent.class).subscribe(guildSubscriber());
     }
 
-    private static IListener<GuildCreateEvent> guildSubscriber() {
+    private static Consumer<GuildCreateEvent> guildSubscriber() {
         return event -> {
-            IGuild guild = event.getGuild();
-            String guildId = guild.getStringID();
-            IVoiceChannel connected = guild.getConnectedVoiceChannel();
-            if (connected != null) {
-                connected.leave();
-            }
-            guild.getAudioManager().setAudioProvider(getProvider(guildId));
+            Guild guild = event.getGuild();
+            Snowflake guildId = guild.getId();
             GuildChannels.INSTANCE.events.subscribe(guildId, new Object() {
 
                 @Subscribe
                 public void onNewChannel(NewChannel newChannel) {
                     if (newChannel.getChannelId() == null) {
-                        IVoiceChannel conn = guild.getConnectedVoiceChannel();
-                        if (conn != null) {
-                            conn.leave();
-                        }
                         return;
                     }
-                    long cId = Long.parseUnsignedLong(newChannel.getChannelId());
-                    guild.getVoiceChannelByID(cId).join();
+                    Channel channel = guild.getChannelById(newChannel.getChannelId()).block();
+                    if (!(channel instanceof VoiceChannel)) {
+                        return;
+                    }
+                    VoiceChannel voiceChannel = (VoiceChannel) channel;
+                    voiceChannel
+                        .join(spec -> spec.setProvider(getProvider(guildId)))
+                        .subscribe(voiceConnection -> {
+                            guildConnections.put(guildId, new ActiveConnection(
+                                voiceChannel, voiceConnection
+                            ));
+                            getScheduler(guildId).nextTrack(true);
+                        });
                     TrackScheduler sch = getScheduler(guildId);
                     sch.getAccessLock().lock();
                     try {
                         if (sch.allTracksStream()
-                                .map(AudioTrack::getUserData)
-                                .allMatch(Predicate.isEqual(startupFlag))) {
+                            .map(AudioTrack::getUserData)
+                            .allMatch(Predicate.isEqual(startupFlag))) {
                             // just start up sounds. queue another!
-                            sch.addTrack(BOT.getOurUser().getStringID(), getStartupSound());
+                            sch.addTrack(BOT.getSelfId().orElseThrow(), getStartupSound());
                         }
                     } finally {
                         sch.getAccessLock().unlock();

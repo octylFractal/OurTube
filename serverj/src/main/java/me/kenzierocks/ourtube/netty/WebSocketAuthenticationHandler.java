@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 
+import discord4j.core.object.util.Snowflake;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -91,7 +92,7 @@ public class WebSocketAuthenticationHandler extends ChannelDuplexHandler {
             }
             String token = params.get(TOKEN).get(0);
 
-            String userId = validateToken(token);
+            Snowflake userId = validateToken(token);
             if (userId == null) {
                 // ignore request with bad authentication
                 connect.denied();
@@ -105,14 +106,14 @@ public class WebSocketAuthenticationHandler extends ChannelDuplexHandler {
         super.userEventTriggered(ctx, evt);
     }
 
-    private String validateToken(String token) throws IOException {
+    private Snowflake validateToken(String token) throws IOException {
         Response response = http.newCall(new Request.Builder()
                 .url("https://discordapp.com/api/v6/users/@me")
                 .header(HttpHeaderNames.AUTHORIZATION.toString(), "Bearer " + token)
                 .build()).execute();
         Map<String, Object> userObj = helper.getMapper().readValue(response.body().string(), TypeFactory.unknownType());
         Object id = userObj.get("id");
-        return id == null ? null : id.toString();
+        return id == null ? null : Snowflake.of(id.toString());
     }
 
 }

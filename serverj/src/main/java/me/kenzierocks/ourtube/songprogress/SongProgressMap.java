@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nullable;
 
+import discord4j.core.object.util.Snowflake;
 import me.kenzierocks.ourtube.Events;
 
 public enum SongProgressMap {
@@ -37,14 +38,14 @@ public enum SongProgressMap {
 
     public final Events events = new Events("SongProgress");
 
-    private final Map<String, SongProgress> progressMap = new ConcurrentHashMap<>();
+    private final Map<Snowflake, SongProgress> progressMap = new ConcurrentHashMap<>();
 
     @Nullable
-    public SongProgress getProgress(String guildId) {
+    public SongProgress getProgress(Snowflake guildId) {
         return progressMap.get(guildId);
     }
 
-    public void setProgress(String guildId, SongProgress progress) {
+    public void setProgress(Snowflake guildId, SongProgress progress) {
         progressMap.put(guildId, progress);
         events.post(guildId, NewProgress.create(progress));
     }

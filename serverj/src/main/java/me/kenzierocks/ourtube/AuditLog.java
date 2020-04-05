@@ -25,10 +25,10 @@
 
 package me.kenzierocks.ourtube;
 
+import com.google.common.util.concurrent.Futures;
+import discord4j.core.object.util.Snowflake;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.util.concurrent.Futures;
 
 public class AuditLog {
 
@@ -67,6 +67,10 @@ public class AuditLog {
             LOGGER.info("User {}: action '{}' {}", userId, action, state);
             return this;
         }
+    }
+
+    public static Action action(Snowflake userId, String action, Object... fmtArgs) {
+        return action(userId.asString(), action, fmtArgs);
     }
 
     public static Action action(String userId, String action, Object... fmtArgs) {

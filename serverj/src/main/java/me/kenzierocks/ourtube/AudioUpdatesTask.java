@@ -27,12 +27,13 @@ package me.kenzierocks.ourtube;
 
 import java.util.concurrent.TimeUnit;
 
+import discord4j.core.object.util.Snowflake;
 import org.slf4j.Logger;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 
-import me.kenzierocks.ourtube.lava.AudioProvider;
+import me.kenzierocks.ourtube.lava.OurTubeAudioProvider;
 import me.kenzierocks.ourtube.songprogress.SongProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgressMap;
 
@@ -41,13 +42,13 @@ public class AudioUpdatesTask implements Runnable {
     private static final Logger LOGGER = Log.get();
 
     private final AudioPlayer player;
-    private final AudioProvider timeTracker;
+    private final OurTubeAudioProvider timeTracker;
     private final AudioTrack track;
-    private final String guildId;
+    private final Snowflake guildId;
     private final String songId;
     private final long initialMs;
 
-    public AudioUpdatesTask(AudioPlayer player, AudioProvider timeTracker, AudioTrack track, String guildId, String songId) {
+    public AudioUpdatesTask(AudioPlayer player, OurTubeAudioProvider timeTracker, AudioTrack track, Snowflake guildId, String songId) {
         this.player = player;
         this.timeTracker = timeTracker;
         this.track = track;

@@ -25,11 +25,13 @@
 
 package me.kenzierocks.ourtube.rpc;
 
+import discord4j.core.object.util.Snowflake;
+
 public interface RpcClient {
 
     String getId();
 
-    String getUserId();
+    Snowflake getUserId();
 
     String getToken();
 
