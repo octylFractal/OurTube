@@ -28,6 +28,7 @@ package me.kenzierocks.ourtube;
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.Resources;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
@@ -62,6 +63,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -188,6 +191,13 @@ public class Dissy {
         BOT.getEventDispatcher().on(GuildCreateEvent.class).subscribe(guildSubscriber());
     }
 
+    private static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool(
+        new ThreadFactoryBuilder()
+            .setDaemon(true)
+            .setNameFormat("dissy-%d")
+            .build()
+    );
+
     private static Consumer<GuildCreateEvent> guildSubscriber() {
         return event -> {
             Guild guild = event.getGuild();
@@ -208,12 +218,13 @@ public class Dissy {
                     VoiceChannel voiceChannel = (VoiceChannel) channel;
                     voiceChannel
                         .join(spec -> spec.setProvider(getProvider(guildId)))
-                        .subscribe(voiceConnection -> {
+                        // hop out of the reactor threads to allow block()
+                        .subscribe(voiceConnection -> THREAD_POOL.submit(() -> {
                             guildConnections.put(guildId, new ActiveConnection(
                                 voiceChannel, voiceConnection
                             ));
                             getScheduler(guildId).nextTrack(true);
-                        });
+                        }));
                     TrackScheduler sch = getScheduler(guildId);
                     sch.getAccessLock().lock();
                     try {
