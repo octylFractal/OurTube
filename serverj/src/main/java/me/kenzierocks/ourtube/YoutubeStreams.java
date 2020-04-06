@@ -137,7 +137,7 @@ public class YoutubeStreams {
             startChecker("FFmpeg", ffmpeg, FFMPEG_OK);
             WRITER.submit(() -> {
                 Future<?> future = null;
-                try (OutputStream out = ffmpeg.getOutputStream()) {
+                try (source; OutputStream out = ffmpeg.getOutputStream()) {
                     byte[] buf = new byte[LARGE_BUFFER];
                     int read;
                     while ((read = source.read(buf)) != -1) {
@@ -154,8 +154,9 @@ public class YoutubeStreams {
                         out.write(buf, 0, read);
                     }
                 } finally {
-                    future.cancel(true);
-                    source.close();
+                    if (future != null) {
+                        future.cancel(true);
+                    }
                 }
                 return null;
             });
