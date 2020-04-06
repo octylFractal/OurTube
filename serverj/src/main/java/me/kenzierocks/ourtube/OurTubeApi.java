@@ -282,7 +282,8 @@ public class OurTubeApi {
                             .filter(VoiceChannel.class::isInstance)
                             .cast(VoiceChannel.class)
                             .map(ic -> new DissyChannel(ic.getId().asString(), ic.getName()))
-                            .collect(toImmutableList());
+                            .collect(toImmutableList())
+                            .block();
                     })
             ));
         server.register("dis.selectChannel",
