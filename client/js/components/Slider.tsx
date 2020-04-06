@@ -13,7 +13,7 @@ type SliderState = {
 };
 
 export class Slider extends React.Component<SliderProps, SliderState> {
-    boundMoveHandler: () => any;
+    boundMoveHandler: (e: MouseEvent) => any;
     boundUpHandler: () => any;
     bar: HTMLElement | null;
 

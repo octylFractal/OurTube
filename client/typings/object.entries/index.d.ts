@@ -1,6 +1,6 @@
 declare const entries: EntriesShim;
 
-declare module 'object.entries' {
+declare module "object.entries" {
     export = entries;
 }
 
@@ -9,5 +9,5 @@ interface EntriesShim {
 }
 
 declare interface Object {
-    entries<V>(object: { [key: string]: V }): Array<[string, V]>
+    entries<K extends { [k in keyof K]: V }, V>(object: K): Array<[keyof K, V]>
 }

@@ -1,6 +1,6 @@
 import {LSConst} from "./lsConst";
 
-interface DiscordLoginData {
+export interface DiscordLoginData {
     access_token: string
     state: string
 

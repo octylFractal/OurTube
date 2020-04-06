@@ -20,13 +20,13 @@ export function newSliceFunction<T, P>(type: string, func: StateTransform<T, P>)
     });
 }
 
-type StringIndexable<V> = { [key: string]: V };
+type StringIndexable<K, V> = { [k in Extract<keyof K, string>]: V };
 type Annotated<K> = { [k in keyof K]: SliceFunction<any, any> };
 
-export function annotateFunctions<K extends StringIndexable<StateTransform<any, any>>>(funcs: K): Annotated<K> {
+export function annotateFunctions<K extends StringIndexable<any, StateTransform<any, any>>>(funcs: K): Annotated<K> {
     const o = {} as Annotated<K>;
     Object.entries(funcs).forEach(([k, v]) => {
-        o[k] = newSliceFunction(k, v);
+        o[k as keyof K] = newSliceFunction(k as string, v as StateTransform<any, any>);
     });
     return o;
 }
@@ -40,15 +40,15 @@ interface Slice<T> {
 }
 
 
-export function createSliceDistributor<STATE extends StringIndexable<any>>(sliceMap: SliceMap<STATE>, defaultState: STATE): Reducer<STATE, OTAction<any>> {
+export function createSliceDistributor<STATE extends StringIndexable<any, any>>(sliceMap: SliceMap<STATE>, defaultState: STATE): Reducer<STATE, OTAction<any>> {
     // rewrite sliceMap
     // map of actionType -> Slice
     const actionMap: Map<string, Slice<any>> = new Map();
     Object.entries(sliceMap).forEach(([k, v]) => {
-        v.forEach(sliceFunc => {
+        (v as SliceFunction<typeof k, any>[]).forEach(sliceFunc => {
             actionMap.set(sliceFunc.type, {
                 func: sliceFunc.stateTransform,
-                slice: k
+                slice: k as string
             });
         })
     });

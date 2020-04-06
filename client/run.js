@@ -1,15 +1,14 @@
-const proxy = require('http-proxy-middleware');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const express = require('express');
 const app = express();
 
-app.use(proxy('/server', {
+app.use(createProxyMiddleware('/server', {
     target: 'http://127.0.0.1:13445',
     changeOrigin: true,
     ws: true,
     pathRewrite: {
         '^/server': '/'
-    },
-    logLevel: 'debug'
+    }
 }));
 app.use('/', express.static('dist'));
 

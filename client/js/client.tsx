@@ -9,7 +9,7 @@ import {hookFields} from "./invalidateForms";
 import {Provider} from "react-redux";
 import {ISTATE} from "./reduxish/store";
 import queryString from "query-string";
-import {discordLogin} from "./discordLoginImport";
+import {discordLogin, DiscordLoginData} from "./discordLoginImport";
 import {discordInformationFromLocalStorage} from "./reduxish/discordLocalStorage";
 
 function getRoutes() {
@@ -46,7 +46,7 @@ $(() => {
             hookFields();
             if (discordRedirect()) {
                 // store hash data into local storage
-                const hashData = queryString.parse(window.location.hash);
+                const hashData = queryString.parse(window.location.hash) as DiscordLoginData;
                 discordLogin(hashData);
                 window.location.replace('/');
             }
