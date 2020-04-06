@@ -68,7 +68,7 @@ import java.util.function.Predicate;
 public class Dissy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Dissy.class);
-    public static final DiscordClient BOT = new DiscordClientBuilder(Environment.DISCORD_TOKEN)
+    public static final DiscordClient BOT = DiscordClientBuilder.create(Environment.DISCORD_TOKEN)
         .build();
 
     private static final AudioPlayerManager manager = new DefaultAudioPlayerManager();
