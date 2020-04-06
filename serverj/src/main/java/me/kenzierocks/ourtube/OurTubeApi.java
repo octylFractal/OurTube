@@ -29,6 +29,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.eventbus.Subscribe;
 import discord4j.core.object.entity.VoiceChannel;
 import discord4j.core.object.util.Snowflake;
+import discord4j.rest.http.client.ClientException;
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.guildqueue.GuildQueue;
@@ -44,6 +45,7 @@ import me.kenzierocks.ourtube.rpc.RpcRegistry;
 import me.kenzierocks.ourtube.songprogress.NewProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgress;
 import me.kenzierocks.ourtube.songprogress.SongProgressMap;
+import reactor.core.publisher.Mono;
 
 import java.util.Map;
 import java.util.Optional;
@@ -262,7 +264,9 @@ public class OurTubeApi {
                     () ->
                         Stream.of(args.guildIds)
                             .filter(
-                                gid -> Dissy.BOT.getGuildById(Snowflake.of(gid)).block() != null)
+                                gid -> Dissy.BOT.getGuildById(Snowflake.of(gid))
+                                    .onErrorResume(ClientException.class, ex -> Mono.empty())
+                                    .block() != null)
                             .collect(toImmutableList())
                 )
             ));

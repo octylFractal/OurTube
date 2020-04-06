@@ -48,12 +48,13 @@ import discord4j.core.object.entity.Message;
 import discord4j.core.object.entity.MessageChannel;
 import discord4j.core.object.entity.VoiceChannel;
 import discord4j.core.object.util.Snowflake;
-import discord4j.voice.VoiceConnection;
 import me.kenzierocks.ourtube.guildchannels.GuildChannels;
 import me.kenzierocks.ourtube.guildchannels.NewChannel;
 import me.kenzierocks.ourtube.lava.OurTubeAudioProvider;
 import me.kenzierocks.ourtube.lava.OurTubeAudioSourceMananger;
 import me.kenzierocks.ourtube.lava.TrackScheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.net.URL;
@@ -66,6 +67,7 @@ import java.util.function.Predicate;
 
 public class Dissy {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Dissy.class);
     public static final DiscordClient BOT = new DiscordClientBuilder(Environment.DISCORD_TOKEN)
         .build();
 
@@ -175,12 +177,13 @@ public class Dissy {
             MessageChannel channel = message.getChannel().block();
             if (channel == null || channel instanceof GuildChannel ||
                 message.getAuthor()
-                    .flatMap(user -> BOT.getSelfId()
-                        .filter(id -> !id.equals(user.getId())))
+                    .flatMap(user -> BOT.getSelfId().filter(id -> id.equals(user.getId())))
                     .isPresent()) {
                 return;
             }
-            channel.createMessage("no u");
+            channel.createMessage("no u")
+                .doOnError(error -> LOGGER.warn("Error sending message", error))
+                .block();
         });
         BOT.getEventDispatcher().on(GuildCreateEvent.class).subscribe(guildSubscriber());
     }
