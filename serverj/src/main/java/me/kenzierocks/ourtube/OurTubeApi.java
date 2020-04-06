@@ -291,7 +291,7 @@ public class OurTubeApi {
                 GuildChannels.INSTANCE.setChannel(
                     Snowflake.of(args.guildId),
                     client.getUserId(),
-                    Snowflake.of(args.channelId)
+                    args.channelId == null ? null : Snowflake.of(args.channelId)
                 )
             ));
 
