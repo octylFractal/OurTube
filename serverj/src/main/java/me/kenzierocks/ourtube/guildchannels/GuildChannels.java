@@ -55,7 +55,7 @@ public enum GuildChannels {
         Optional<Snowflake> newId = Optional.ofNullable(channelId);
         Optional<Snowflake> old = channelsMap.put(guildId, newId);
         if (!Objects.equals(newId, old)) {
-            events.post(guildId, NewChannel.create(channelId));
+            events.post(guildId, NewChannel.create(newId.map(Snowflake::asString).orElse(null)));
         }
     }
 

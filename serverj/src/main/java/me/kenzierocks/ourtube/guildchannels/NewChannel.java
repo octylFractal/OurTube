@@ -33,7 +33,7 @@ import discord4j.core.object.util.Snowflake;
 @AutoValue
 public abstract class NewChannel {
 
-    public static NewChannel create(@Nullable Snowflake channelId) {
+    public static NewChannel create(@Nullable String channelId) {
         return new AutoValue_NewChannel(channelId);
     }
 
@@ -41,6 +41,6 @@ public abstract class NewChannel {
     }
 
     @Nullable
-    public abstract Snowflake getChannelId();
+    public abstract String getChannelId();
 
 }

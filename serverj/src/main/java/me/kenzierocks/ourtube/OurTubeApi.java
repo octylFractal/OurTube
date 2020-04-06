@@ -307,7 +307,7 @@ public class OurTubeApi {
                 DissySub sub = new DissySub(client, guildId);
 
                 Snowflake channel = GuildChannels.INSTANCE.getChannel(guildId);
-                sub.onNewChannel(NewChannel.create(channel));
+                sub.onNewChannel(NewChannel.create(channel == null ? null : channel.asString()));
 
                 GuildChannels.INSTANCE.events.subscribe(guildId, sub);
 

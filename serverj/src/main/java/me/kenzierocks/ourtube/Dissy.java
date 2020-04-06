@@ -199,7 +199,9 @@ public class Dissy {
                     if (newChannel.getChannelId() == null) {
                         return;
                     }
-                    Channel channel = guild.getChannelById(newChannel.getChannelId()).block();
+                    Channel channel = guild.getChannelById(
+                        Snowflake.of(newChannel.getChannelId())
+                    ).block();
                     if (!(channel instanceof VoiceChannel)) {
                         return;
                     }
