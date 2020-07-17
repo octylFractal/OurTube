@@ -92,7 +92,7 @@ public enum YoutubeAccess {
 
     public ListenableFuture<SongData> getVideoDataCached(String songId) {
         ListenableFuture<SongData> result = videoDataCache.getUnchecked(songId);
-        Futures.addCallback(result, new FutureCallback<SongData>() {
+        Futures.addCallback(result, new FutureCallback<>() {
 
             @Override
             public void onFailure(Throwable t) {
@@ -111,8 +111,8 @@ public enum YoutubeAccess {
 
     private ListenableFuture<SongData> getVideoData(String songId) {
         return AsyncService.GENERIC.submit(() -> {
-            VideoListResponse ytResponse = yt3.videos().list("snippet,contentDetails")
-                    .setId(songId)
+            VideoListResponse ytResponse = yt3.videos().list(List.of("snippet", "contentDetails"))
+                    .setId(List.of(songId))
                     .setKey(Environment.YOUTUBE_API_KEY)
                     .execute();
             if (ytResponse.getItems().isEmpty()) {
@@ -202,7 +202,7 @@ public enum YoutubeAccess {
         Stream<PlaylistItem> current = Stream.of();
         String pageToken = "";
         while (pageToken != null) {
-            PlaylistItems.List itemRequest = yt3.playlistItems().list("contentDetails")
+            PlaylistItems.List itemRequest = yt3.playlistItems().list(List.of("contentDetails"))
                     .setPlaylistId(list)
                     .setKey(Environment.YOUTUBE_API_KEY)
                     .setMaxResults(50L);
