@@ -108,7 +108,7 @@ public class WebSocketAuthenticationHandler extends ChannelDuplexHandler {
 
     private Snowflake validateToken(String token) throws IOException {
         Response response = http.newCall(new Request.Builder()
-                .url("https://discordapp.com/api/v6/users/@me")
+                .url("https://discord.com/api/v6/users/@me")
                 .header(HttpHeaderNames.AUTHORIZATION.toString(), "Bearer " + token)
                 .build()).execute();
         Map<String, Object> userObj = helper.getMapper().readValue(response.body().string(), TypeFactory.unknownType());
