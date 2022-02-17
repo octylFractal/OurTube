@@ -70,7 +70,7 @@
     "type-zoo": "^3.4.1",
     "typescript": "^3.8.3",
     "uglify-es": "^3.3.9",
-    "url-parse": "^1.4.7"
+    "url-parse": "^1.5.6"
   },
   "dependencies": {
     "nodent-runtime": "^3.2.1",
